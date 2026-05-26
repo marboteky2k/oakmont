@@ -26,6 +26,7 @@ import Referrals from '@/pages/referrals/Referrals'
 import Support from '@/pages/support/Support'
 import Markets from '@/pages/markets/Markets'
 import Trading from '@/pages/trading/Trading'
+import TradeHistory from '@/pages/trading/TradeHistory'
 import Exchanges from '@/pages/exchanges/Exchanges'
 import BotTrading from '@/pages/bot-trading/BotTrading'
 
@@ -120,6 +121,7 @@ export default function App() {
               <Route path="/kyc" element={<KYC />} />
               <Route path="/markets" element={<Markets />} />
               <Route path="/trading" element={<Trading />} />
+              <Route path="/trade-history" element={<TradeHistory />} />
               <Route path="/exchanges" element={<Exchanges />} />
               <Route path="/bot-trading" element={<BotTrading />} />
               <Route path="/referrals" element={<Referrals />} />
@@ -137,6 +139,7 @@ export default function App() {
               <Route path="/trader/trades" element={<TraderOpenTrades />} />
               <Route path="/trader/followers" element={<TraderFollowersEarnings />} />
               <Route path="/trader/profile" element={<TraderProfileSetup />} />
+              <Route path="/trade-history" element={<TradeHistory />} />
             </Route>
           </Route>
 

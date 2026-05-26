@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
@@ -12,8 +12,8 @@ import { PublicNav } from '@/components/layout/PublicNav'
 import { LandingFooter } from '@/pages/landing/LandingFooter'
 import { useContactInfo } from '@/hooks/useCmsContent'
 
-const DEFAULT_SUPPORT_EMAIL = 'support@oakmontridge.com'
-const DEFAULT_BUSINESS_EMAIL = 'business@oakmontridge.com'
+const DEFAULT_SUPPORT_EMAIL = 'support@oakmontridgecapital.com'
+const DEFAULT_BUSINESS_EMAIL = 'business@oakmontridgecapital.com'
 
 const TOPICS = [
   'Account & Verification (KYC)',

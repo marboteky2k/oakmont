@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+﻿import { useState, type FormEvent } from 'react'
 import { motion } from 'framer-motion'
 import {
   MessageSquare, Mail, Clock, CheckCircle, ExternalLink,
@@ -12,7 +12,7 @@ import toast from 'react-hot-toast'
 const quickLinks = [
   { icon: BookOpen, label: 'FAQ / Help Center', desc: 'Browse answers to common questions', href: '/#faq', color: 'bg-blue-100 text-blue-600' },
   { icon: Shield, label: 'KYC Verification', desc: 'Verify your identity to unlock all features', href: '/kyc', color: 'bg-green-100 text-green-600' },
-  { icon: Mail, label: 'Email Support', desc: 'support@oakmontridge.capital', href: 'mailto:support@oakmontridge.capital', color: 'bg-purple-100 text-purple-600' },
+  { icon: Mail, label: 'Email Support', desc: 'support@oakmontridgecapital.com', href: 'mailto:support@oakmontridgecapital.com', color: 'bg-purple-100 text-purple-600' },
 ]
 
 const faqs = [

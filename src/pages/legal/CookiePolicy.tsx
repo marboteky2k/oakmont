@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { Cookie, ChevronRight, Settings, BarChart2, Shield, Bell } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PublicNav } from '@/components/layout/PublicNav'
@@ -7,7 +7,7 @@ import { useLegalDoc } from '@/hooks/useCmsContent'
 
 const EFFECTIVE_DATE = 'May 24, 2026'
 const COMPANY        = 'Oakmont Ridge Capital Ltd.'
-const CONTACT_EMAIL  = 'privacy@oakmontridge.com'
+const CONTACT_EMAIL  = 'privacy@oakmontridgecapital.com'
 
 interface SectionProps {
   id: string
@@ -142,7 +142,7 @@ export default function CookiePolicy() {
           ) : (<>
           <p className="text-sm text-slate-600 leading-7">
             This Cookie &amp; Cache Policy explains how {COMPANY} uses cookies, web storage, and caching technologies
-            when you visit <strong>oakmontridge.com</strong>. Read this alongside our{' '}
+            when you visit <strong>oakmontridgecapital.com</strong>. Read this alongside our{' '}
             <Link to="/privacy" className="text-blue-600 hover:underline">Privacy Policy</Link>.
           </p>
 

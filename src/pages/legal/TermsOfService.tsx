@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { FileText, ChevronRight, AlertTriangle, Scale, Ban, CreditCard, RefreshCw, Shield } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PublicNav } from '@/components/layout/PublicNav'
@@ -7,7 +7,7 @@ import { useLegalDoc } from '@/hooks/useCmsContent'
 
 const EFFECTIVE_DATE = 'May 24, 2026'
 const COMPANY       = 'Oakmont Ridge Capital Ltd.'
-const CONTACT_EMAIL = 'legal@oakmontridge.com'
+const CONTACT_EMAIL = 'legal@oakmontridgecapital.com'
 
 interface SectionProps { id: string; title: string; children: React.ReactNode }
 function Section({ id, title, children }: SectionProps) {

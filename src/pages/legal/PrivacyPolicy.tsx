@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+﻿import { motion } from 'framer-motion'
 import { Shield, Mail, Lock, Eye, Database, Globe, RefreshCw, ChevronRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PublicNav } from '@/components/layout/PublicNav'
@@ -7,7 +7,7 @@ import { useLegalDoc } from '@/hooks/useCmsContent'
 
 const EFFECTIVE_DATE = 'May 24, 2026'
 const COMPANY       = 'Oakmont Ridge Capital Ltd.'
-const CONTACT_EMAIL = 'privacy@oakmontridge.com'
+const CONTACT_EMAIL = 'privacy@oakmontridgecapital.com'
 
 interface SectionProps {
   id: string
@@ -109,7 +109,7 @@ export default function PrivacyPolicy() {
           <p className="text-sm text-slate-600 leading-7">
             {COMPANY} ("<strong>we</strong>", "<strong>us</strong>", or "<strong>our</strong>") is committed to
             protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and
-            safeguard your information when you use our platform at <strong>oakmontridge.com</strong> (the
+            safeguard your information when you use our platform at <strong>oakmontridgecapital.com</strong> (the
             "<strong>Service</strong>"). Please read this policy carefully. If you disagree with its terms, please
             discontinue use of the Service.
           </p>

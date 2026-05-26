@@ -1,4 +1,4 @@
-// =============================================================
+﻿// =============================================================
 // AI Support Chat — Knowledge Base & Response Engine
 // =============================================================
 // Runs entirely on the client.  No external API key required.
@@ -142,7 +142,7 @@ const KB: KBEntry[] = [
   {
     patterns: [/verif.*email/i, /confirm.*email/i, /email.*not.*arriv/i, /resend.*verif/i, /email.*link/i],
     responses: [
-      "If you're not receiving the verification email:\n\n✅ Check your **Spam / Junk** folder — it often lands there\n✅ Make sure you typed your email correctly during registration\n✅ Add support@oakmontridge.com to your contacts\n✅ Try the **Resend Verification** button on the login screen\n\nVerification emails are sent instantly. If you still haven't received it after 10 minutes and it's not in spam, let me know your registered email and I'll have our team send it manually.",
+      "If you're not receiving the verification email:\n\n✅ Check your **Spam / Junk** folder — it often lands there\n✅ Make sure you typed your email correctly during registration\n✅ Add support@oakmontridgecapital.com to your contacts\n✅ Try the **Resend Verification** button on the login screen\n\nVerification emails are sent instantly. If you still haven't received it after 10 minutes and it's not in spam, let me know your registered email and I'll have our team send it manually.",
     ],
   },
 
@@ -182,7 +182,7 @@ const KB: KBEntry[] = [
   {
     patterns: [/human/i, /real.*agent/i, /speak.*someone/i, /talk.*person/i, /live.*support/i, /contact.*support/i, /escalat/i],
     responses: [
-      "I understand — sometimes you need a human! Our support team is available **Monday–Friday, 9am–6pm UTC**.\n\nYou can reach a human agent by:\n📧 **Email:** support@oakmontridge.com — we respond within 24 hours\n💬 **This chat** — type your issue and a human agent will pick it up during business hours\n\nI'll flag your conversation for priority attention. In the meantime, can you tell me more about your issue? I might be able to resolve it right now.",
+      "I understand — sometimes you need a human! Our support team is available **Monday–Friday, 9am–6pm UTC**.\n\nYou can reach a human agent by:\n📧 **Email:** support@oakmontridgecapital.com — we respond within 24 hours\n💬 **This chat** — type your issue and a human agent will pick it up during business hours\n\nI'll flag your conversation for priority attention. In the meantime, can you tell me more about your issue? I might be able to resolve it right now.",
     ],
   },
 
@@ -190,7 +190,7 @@ const KB: KBEntry[] = [
   {
     patterns: [/hack/i, /breach/i, /unauthori/i, /suspicious/i, /not.*me/i, /someone.*access/i, /secur.*issue/i],
     responses: [
-      "🚨 **This is urgent — take these steps immediately:**\n\n1. **Change your password** right now at Settings → Security\n2. **Enable 2FA** if not already on\n3. **Check your transactions** for any unrecognised activity\n4. **Revoke all sessions** in Settings → Security → Active Sessions\n5. **Email security@oakmontridge.com** with details\n\nOur security team monitors for suspicious activity 24/7. We will investigate and, if necessary, freeze your account to protect your funds. Please act immediately and share any details that might help our investigation.",
+      "🚨 **This is urgent — take these steps immediately:**\n\n1. **Change your password** right now at Settings → Security\n2. **Enable 2FA** if not already on\n3. **Check your transactions** for any unrecognised activity\n4. **Revoke all sessions** in Settings → Security → Active Sessions\n5. **Email security@oakmontridgecapital.com** with details\n\nOur security team monitors for suspicious activity 24/7. We will investigate and, if necessary, freeze your account to protect your funds. Please act immediately and share any details that might help our investigation.",
     ],
   },
 
@@ -214,9 +214,9 @@ const KB: KBEntry[] = [
 
 // ── Generic / fallback ─────────────────────────────────────
 const FALLBACK_RESPONSES = [
-  "Thanks for reaching out! I want to make sure I give you the most accurate answer. Could you share a bit more detail about what you need help with? You can also email us at support@oakmontridge.com and our team will respond within 24 hours.",
-  "I'm not sure I fully understand your question yet. Could you rephrase it or give me more context? Alternatively, our human support agents are available Mon–Fri, 9am–6pm UTC at support@oakmontridge.com.",
-  "Great question! I want to give you the right answer. Could you give me a bit more detail? For urgent issues, please email support@oakmontridge.com and our team will respond within 24 hours.",
+  "Thanks for reaching out! I want to make sure I give you the most accurate answer. Could you share a bit more detail about what you need help with? You can also email us at support@oakmontridgecapital.com and our team will respond within 24 hours.",
+  "I'm not sure I fully understand your question yet. Could you rephrase it or give me more context? Alternatively, our human support agents are available Mon–Fri, 9am–6pm UTC at support@oakmontridgecapital.com.",
+  "Great question! I want to give you the right answer. Could you give me a bit more detail? For urgent issues, please email support@oakmontridgecapital.com and our team will respond within 24 hours.",
 ]
 
 // ── Response selection ─────────────────────────────────────

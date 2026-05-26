@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+﻿import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { supabase } from '@/lib/supabase'
 import type {
   SiteSettings, HeroSettings, StatsBarSettings,
@@ -73,7 +73,7 @@ const DEFAULT_BRAND: BrandSettings = {
   tagline:       'Professional forex copy trading and crypto investment platform. Grow your wealth with the world\'s best-verified traders.',
   primary_color: '#1E40AF',
   accent_color:  '#3B82F6',
-  support_email: 'support@oakmontridge.com',
+  support_email: 'support@oakmontridgecapital.com',
   telegram_url:  'https://t.me/oakmontridge',
   whatsapp_url:  'https://wa.me/1234567890',
   logo_url:      '/logo.png',

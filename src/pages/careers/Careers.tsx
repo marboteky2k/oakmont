@@ -1,4 +1,4 @@
-import { useState } from 'react'
+﻿import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
@@ -285,7 +285,7 @@ export default function Careers() {
                           Apply Now <ArrowRight className="w-4 h-4" />
                         </Link>
                         <a
-                          href={`mailto:careers@oakmontridge.com?subject=Application: ${encodeURIComponent(job.title)}`}
+                          href={`mailto:careers@oakmontridgecapital.com?subject=Application: ${encodeURIComponent(job.title)}`}
                           className="flex items-center gap-2 border border-slate-200 text-slate-700 text-sm font-medium px-5 py-2.5 rounded-xl hover:border-[#3B82F6] hover:text-[#1E40AF] transition-colors"
                         >
                           Email Application
@@ -313,7 +313,7 @@ export default function Careers() {
             how you'd like to contribute to the future of trading.
           </p>
           <a
-            href={`mailto:${cmsHeader.email || 'careers@oakmontridge.com'}`}
+            href={`mailto:${cmsHeader.email || 'careers@oakmontridgecapital.com'}`}
             className="inline-flex items-center gap-2 bg-white text-[#1E40AF] font-semibold text-sm px-6 py-2.5 rounded-xl hover:bg-blue-50 transition-colors"
           >
             Send Speculative Application <ArrowRight className="w-4 h-4" />

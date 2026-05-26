@@ -4,45 +4,48 @@ import {
   LayoutDashboard, TrendingUp, Wallet, BarChart3, Users, Settings,
   LogOut, Bell, ChevronRight, CreditCard, FileText,
   UserCheck, Database, Gift, Headphones, DollarSign, LineChart,
-  Send, BarChart2, Lock, Sparkles, Activity, Bot, Link2, MessageCircle, CandlestickChart, Zap,
+  Send, BarChart2, Lock, Sparkles, Activity, Bot, Link2, MessageCircle, CandlestickChart, Zap, History,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications'
 import { cn } from '@/lib/utils'
 import type { BrandSettings } from '@/types/settings'
 import type { User } from '@/types/database'
 
 // ── Nav definitions ───────────────────────────────────────────────────────────
 
-type NavItem = { to: string; icon: React.ComponentType<{ className?: string }>; label: string }
+type NavItem = { to: string; icon: React.ComponentType<{ className?: string }>; label: string; badge?: number }
 
 const investorNav: NavItem[] = [
-  { to: '/dashboard',    icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/copy-trading', icon: TrendingUp,      label: 'Copy Trading' },
-  { to: '/investments',  icon: BarChart3,        label: 'Investments' },
-  { to: '/markets',      icon: Activity,             label: 'Markets' },
-  { to: '/trading',      icon: CandlestickChart,     label: 'Live Trading' },
-  { to: '/bot-trading',  icon: Bot,                  label: 'Bot Trading' },
-  { to: '/exchanges',    icon: Link2,            label: 'Exchanges' },
-  { to: '/wallet',       icon: Wallet,           label: 'Wallet' },
-  { to: '/transactions', icon: CreditCard,       label: 'Transactions' },
-  { to: '/referrals',    icon: Gift,             label: 'Referrals' },
-  { to: '/kyc',          icon: UserCheck,        label: 'KYC Verification' },
-  { to: '/notifications',icon: Bell,             label: 'Notifications' },
-  { to: '/settings',     icon: Settings,         label: 'Settings' },
-  { to: '/support',      icon: Headphones,       label: 'Support' },
+  { to: '/dashboard',      icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/copy-trading',   icon: TrendingUp,      label: 'Copy Trading' },
+  { to: '/investments',    icon: BarChart3,        label: 'Investments' },
+  { to: '/markets',        icon: Activity,         label: 'Markets' },
+  { to: '/trading',        icon: CandlestickChart, label: 'Live Trading' },
+  { to: '/trade-history',  icon: History,          label: 'Trade History' },
+  { to: '/bot-trading',    icon: Bot,              label: 'Bot Trading' },
+  { to: '/exchanges',      icon: Link2,            label: 'Exchanges' },
+  { to: '/wallet',         icon: Wallet,           label: 'Wallet' },
+  { to: '/transactions',   icon: CreditCard,       label: 'Transactions' },
+  { to: '/referrals',      icon: Gift,             label: 'Referrals' },
+  { to: '/kyc',            icon: UserCheck,        label: 'KYC Verification' },
+  { to: '/notifications',  icon: Bell,             label: 'Notifications' },
+  { to: '/settings',       icon: Settings,         label: 'Settings' },
+  { to: '/support',        icon: Headphones,       label: 'Support' },
 ]
 
 const traderNav: NavItem[] = [
-  { to: '/trader',              icon: LayoutDashboard, label: 'Overview' },
-  { to: '/trader/performance',  icon: BarChart3,        label: 'My Performance' },
-  { to: '/trader/trades',       icon: TrendingUp,       label: 'Open Trades' },
-  { to: '/trader/followers',    icon: DollarSign,       label: 'Followers & Earnings' },
-  { to: '/markets',             icon: Activity,             label: 'Markets' },
-  { to: '/trading',             icon: CandlestickChart,     label: 'Live Trading' },
-  { to: '/trader/profile',      icon: UserCheck,            label: 'Profile Setup' },
-  { to: '/notifications',       icon: Bell,             label: 'Notifications' },
-  { to: '/settings',            icon: Settings,         label: 'Settings' },
+  { to: '/trader',             icon: LayoutDashboard, label: 'Overview' },
+  { to: '/trader/performance', icon: BarChart3,        label: 'My Performance' },
+  { to: '/trader/trades',      icon: TrendingUp,       label: 'Open Trades' },
+  { to: '/trader/followers',   icon: DollarSign,       label: 'Followers & Earnings' },
+  { to: '/markets',            icon: Activity,         label: 'Markets' },
+  { to: '/trading',            icon: CandlestickChart, label: 'Live Trading' },
+  { to: '/trade-history',      icon: History,          label: 'Trade History' },
+  { to: '/trader/profile',     icon: UserCheck,        label: 'Profile Setup' },
+  { to: '/notifications',      icon: Bell,             label: 'Notifications' },
+  { to: '/settings',           icon: Settings,         label: 'Settings' },
 ]
 
 const adminNavBase: NavItem[] = [
@@ -81,14 +84,15 @@ function getAdminNav(role: string): NavItem[] {
 // "Rendered more hooks than during the previous render".
 
 interface SidebarContentProps {
-  brand:    BrandSettings
-  profile:  User | null
-  navItems: NavItem[]
-  onClose:  () => void
-  onSignOut: () => void
+  brand:        BrandSettings
+  profile:      User | null
+  navItems:     NavItem[]
+  onClose:      () => void
+  onSignOut:    () => void
+  unreadCount:  number
 }
 
-function SidebarContent({ brand, profile, navItems, onClose, onSignOut }: SidebarContentProps) {
+function SidebarContent({ brand, profile, navItems, onClose, onSignOut, unreadCount }: SidebarContentProps) {
   return (
     <div className="flex flex-col h-full">
 
@@ -133,30 +137,49 @@ function SidebarContent({ brand, profile, navItems, onClose, onSignOut }: Sideba
 
       {/* Nav */}
       <nav className="flex-1 px-4 space-y-0.5 overflow-y-auto">
-        {navItems.map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === '/dashboard' || to === '/admin' || to === '/trader'}
-            onClick={onClose}
-            className={({ isActive }) =>
-              cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
-                isActive
-                  ? 'bg-white text-[#1E40AF] shadow-sm'
-                  : 'text-blue-100 hover:bg-white/10 hover:text-white'
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <Icon className={cn('w-4 h-4 flex-shrink-0', isActive ? 'text-[#1E40AF]' : 'text-blue-200 group-hover:text-white')} />
-                <span className="flex-1">{label}</span>
-                {isActive && <ChevronRight className="w-3 h-3 text-[#3B82F6]" />}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {navItems.map(({ to, icon: Icon, label }) => {
+          // Notifications link gets the unread badge
+          const isNotifLink = to === '/notifications'
+          const badge = isNotifLink && unreadCount > 0 ? unreadCount : 0
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              end={to === '/dashboard' || to === '/admin' || to === '/trader'}
+              onClick={onClose}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group',
+                  isActive
+                    ? 'bg-white text-[#1E40AF] shadow-sm'
+                    : 'text-blue-100 hover:bg-white/10 hover:text-white'
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {/* Icon with optional badge dot */}
+                  <span className="relative flex-shrink-0">
+                    <Icon className={cn('w-4 h-4', isActive ? 'text-[#1E40AF]' : 'text-blue-200 group-hover:text-white')} />
+                    {badge > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                        {badge > 99 ? '99+' : badge}
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex-1">{label}</span>
+                  {/* Show unread count next to label too (when not active) */}
+                  {badge > 0 && !isActive && (
+                    <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-tight">
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                  {isActive && <ChevronRight className="w-3 h-3 text-[#3B82F6]" />}
+                </>
+              )}
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* Sign out */}
@@ -184,6 +207,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { profile, signOut } = useAuth()
   const { settings } = useSiteSettings()
   const navigate = useNavigate()
+  const unreadCount = useUnreadNotifications(profile?.id)
 
   const navItems: NavItem[] =
     profile?.role === 'super_admin' || profile?.role === 'admin'
@@ -198,11 +222,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   }
 
   const contentProps: SidebarContentProps = {
-    brand:    settings.brand,
+    brand:       settings.brand,
     profile,
     navItems,
     onClose,
-    onSignOut: handleSignOut,
+    onSignOut:   handleSignOut,
+    unreadCount,
   }
 
   return (
