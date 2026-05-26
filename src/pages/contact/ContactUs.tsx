@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   Mail, MessageSquare, MapPin, Clock, Send,
-  CheckCircle, ChevronRight, Share2, HelpCircle,
+  CheckCircle, ChevronRight, Share2, HelpCircle, Phone,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,8 +12,10 @@ import { PublicNav } from '@/components/layout/PublicNav'
 import { LandingFooter } from '@/pages/landing/LandingFooter'
 import { useContactInfo } from '@/hooks/useCmsContent'
 
-const DEFAULT_SUPPORT_EMAIL = 'support@oakmontridgecapital.com'
+const DEFAULT_SUPPORT_EMAIL  = 'support@oakmontridgecapital.com'
 const DEFAULT_BUSINESS_EMAIL = 'business@oakmontridgecapital.com'
+const DEFAULT_ADDRESS = `447 Broadway, 2nd Floor\nNew York, NY 10013\nUnited States`
+const DEFAULT_PHONE   = '+1 609 257 4786'
 
 const TOPICS = [
   'Account & Verification (KYC)',
@@ -57,12 +59,20 @@ export default function ContactUs() {
       href: `mailto:${SUPPORT_EMAIL}`,
     },
     {
-      icon: MessageSquare,
+      icon: Phone,
+      color: 'bg-green-50 text-green-600',
+      label: 'Phone',
+      value: cmsContact.phone || DEFAULT_PHONE,
+      sub: 'Mon–Fri, 9am–6pm UTC',
+      href: `tel:${(cmsContact.phone || DEFAULT_PHONE).replace(/\s/g, '')}`,
+    },
+    {
+      icon: MapPin,
       color: 'bg-purple-50 text-purple-600',
-      label: 'Live Chat',
-      value: 'In-app chat',
-      sub: cmsContact.hours ? `Available ${cmsContact.hours}` : 'Available Mon–Fri, 9am–6pm UTC',
-      href: null,
+      label: 'Office',
+      value: '447 Broadway, 2nd Floor',
+      sub: 'New York, NY 10013, US',
+      href: 'https://maps.google.com/?q=447+Broadway+New+York+NY+10013',
     },
     {
       icon: Clock,
@@ -71,14 +81,6 @@ export default function ContactUs() {
       value: cmsContact.hours?.split(',')[0] ?? 'Mon – Fri',
       sub: cmsContact.hours?.split(',').slice(1).join(',').trim() || '09:00 – 18:00 UTC',
       href: null,
-    },
-    {
-      icon: HelpCircle,
-      color: 'bg-green-50 text-green-600',
-      label: 'Help Center',
-      value: 'FAQ & Guides',
-      sub: 'Self-service 24/7',
-      href: '/#faq',
     },
   ]
 
@@ -299,32 +301,52 @@ export default function ContactUs() {
               </div>
             </div>
 
-            {/* Business contact */}
-            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-              <MapPin className="w-5 h-5 text-[#1E40AF] mb-3" />
-              <h3 className="font-semibold text-slate-900 mb-1">Business Inquiries</h3>
-              <p className="text-xs text-slate-500 mb-3">
-                For partnerships, media, or institutional enquiries:
-              </p>
-              <a
-                href={`mailto:${BUSINESS_EMAIL}`}
-                className="text-sm text-[#1E40AF] hover:underline font-medium"
-              >
-                {BUSINESS_EMAIL}
-              </a>
-              {cmsContact.address && (
-                <p className="text-xs text-slate-500 mt-3 leading-relaxed whitespace-pre-line">
-                  {cmsContact.address}
-                </p>
-              )}
-              {cmsContact.phone && (
-                <a
-                  href={`tel:${cmsContact.phone.replace(/\s/g, '')}`}
-                  className="block text-xs text-slate-500 mt-1.5 hover:text-[#1E40AF] transition-colors"
-                >
-                  📞 {cmsContact.phone}
-                </a>
-              )}
+            {/* Office address */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-4">
+              {/* Address */}
+              <div className="flex gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <MapPin className="w-4 h-4 text-[#1E40AF]" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Office Address</p>
+                  <p className="text-sm text-slate-800 leading-relaxed whitespace-pre-line">
+                    {cmsContact.address || DEFAULT_ADDRESS}
+                  </p>
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div className="flex gap-3">
+                <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+                  <Phone className="w-4 h-4 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Phone</p>
+                  <a
+                    href={`tel:${(cmsContact.phone || DEFAULT_PHONE).replace(/\s/g, '')}`}
+                    className="text-sm text-slate-800 hover:text-[#1E40AF] transition-colors font-medium"
+                  >
+                    {cmsContact.phone || DEFAULT_PHONE}
+                  </a>
+                </div>
+              </div>
+
+              {/* Business email */}
+              <div className="flex gap-3">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
+                  <Mail className="w-4 h-4 text-purple-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Business Inquiries</p>
+                  <a
+                    href={`mailto:${BUSINESS_EMAIL}`}
+                    className="text-sm text-[#1E40AF] hover:underline font-medium"
+                  >
+                    {BUSINESS_EMAIL}
+                  </a>
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>

@@ -472,7 +472,7 @@ export default function WalletPage() {
           <Button onClick={() => setDepositModal(true)} className="bg-white text-[#1E40AF] hover:bg-blue-50">
             <ArrowDownToLine className="w-4 h-4" /> Deposit
           </Button>
-          <Button onClick={() => { setWithdrawModal(true); setMfaRequired(false) }} variant="outline" className="border-white text-white hover:bg-white/15">
+          <Button onClick={() => setWithdrawModal(true)} variant="outline" className="border-white text-white hover:bg-white/15">
             <ArrowUpFromLine className="w-4 h-4" /> Withdraw
           </Button>
           <Button onClick={() => openSwapModal('USDT')} variant="outline" className="border-white text-white hover:bg-white/15">
@@ -503,7 +503,7 @@ export default function WalletPage() {
                   Deposit
                 </Button>
                 <Button size="sm" variant="ghost" className="flex-1"
-                  onClick={() => { setCurrency(b.currency); setWithdrawModal(true); setMfaRequired(false) }}>
+                  onClick={() => { setCurrency(b.currency); setWithdrawModal(true) }}>
                   Withdraw
                 </Button>
                 <Button size="sm" variant="ghost" className="px-2.5"
