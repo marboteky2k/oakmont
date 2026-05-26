@@ -141,7 +141,7 @@ export default function TermsOfService() {
             <Section id="account" title="3. Account Responsibilities">
               <p>
                 You are solely responsible for maintaining the confidentiality of your account credentials,
-                including your password and any two-factor authentication codes. You agree to:
+                including your password and any email verification codes. You agree to:
               </p>
               <ul className="list-disc pl-5 space-y-1">
                 <li>Provide accurate, current, and complete information during registration</li>

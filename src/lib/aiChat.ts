@@ -35,8 +35,8 @@ const KB: KBEntry[] = [
   {
     patterns: [/withdraw/i, /cash.*out/i, /take.*out/i, /redeem/i, /payout/i, /get.*money.*out/i],
     responses: [
-      "To withdraw your funds:\n\n1. Make sure your **KYC is verified** (required for all withdrawals)\n2. Go to **Wallet → Withdraw**\n3. Select the cryptocurrency and network\n4. Enter your destination wallet address carefully\n5. Enter the amount\n6. Confirm with your **2FA code**\n\nWithdrawals are reviewed and processed within **1–3 business days**. Network fees are deducted from the withdrawal amount. Would you like help with any step?",
-      "Withdrawal requests are processed within **1–3 business days** after submission. Requirements:\n✅ KYC verification completed\n✅ 2FA enabled on your account\n✅ Valid destination wallet address for the chosen network\n\nGo to **Wallet → Withdraw** to start. If your KYC is still pending, that's typically the most common reason for withdrawal delays. Is your account verified?",
+      "To withdraw your funds:\n\n1. Make sure your **KYC is verified** (required for all withdrawals)\n2. Go to **Wallet → Withdraw**\n3. Select the cryptocurrency and network\n4. Enter your destination wallet address carefully\n5. Enter the amount\n6. Click **Continue** — a **6-digit verification code** is sent to your registered email\n7. Enter the code to confirm the withdrawal\n\nWithdrawals are reviewed and processed within **1–3 business days**. Network fees are deducted from the withdrawal amount. Would you like help with any step?",
+      "Withdrawal requests are processed within **1–3 business days** after submission. Requirements:\n✅ KYC verification completed\n✅ Valid destination wallet address for the chosen network\n✅ Email verification code (sent to your registered email when you submit)\n\nGo to **Wallet → Withdraw** to start. If your KYC is still pending, that's typically the most common reason for withdrawal delays. Is your account verified?",
     ],
   },
 
@@ -82,11 +82,11 @@ const KB: KBEntry[] = [
     ],
   },
 
-  // ── 2FA / Security ─────────────────────────────────────────
+  // ── Email OTP / Security ────────────────────────────────────
   {
-    patterns: [/2fa/i, /two.factor/i, /authenticator/i, /security code/i, /otp/i, /enable.*2fa/i, /setup.*2fa/i],
+    patterns: [/2fa/i, /two.factor/i, /authenticator/i, /security code/i, /otp/i, /verif.*code/i, /email.*code/i],
     responses: [
-      "Setting up 2FA significantly protects your account. Here's how:\n\n1. Go to **Settings → Security**\n2. Click **Enable Two-Factor Authentication**\n3. Download **Google Authenticator** or **Authy** on your phone\n4. Scan the QR code shown\n5. Enter the 6-digit code to confirm\n\n**2FA is required for all withdrawals.** Keep your backup codes in a safe place — they're the only way to recover access if you lose your phone. Need help with a specific step?",
+      "When you initiate a withdrawal, we send a **6-digit verification code** to your registered email address. Simply enter that code to confirm the transaction. This ensures only you can authorise withdrawals — no authenticator app needed.\n\nIf you didn't receive the code, check your spam folder or go back and click Continue again to resend. Still having trouble? Contact support at support@oakmontridgecapital.com.",
     ],
   },
 
@@ -190,7 +190,7 @@ const KB: KBEntry[] = [
   {
     patterns: [/hack/i, /breach/i, /unauthori/i, /suspicious/i, /not.*me/i, /someone.*access/i, /secur.*issue/i],
     responses: [
-      "🚨 **This is urgent — take these steps immediately:**\n\n1. **Change your password** right now at Settings → Security\n2. **Enable 2FA** if not already on\n3. **Check your transactions** for any unrecognised activity\n4. **Revoke all sessions** in Settings → Security → Active Sessions\n5. **Email security@oakmontridgecapital.com** with details\n\nOur security team monitors for suspicious activity 24/7. We will investigate and, if necessary, freeze your account to protect your funds. Please act immediately and share any details that might help our investigation.",
+      "🚨 **This is urgent — take these steps immediately:**\n\n1. **Change your password** right now at Settings → Security\n2. **Check your transactions** for any unrecognised activity\n3. **Revoke all sessions** in Settings → Security → Active Sessions\n4. **Email security@oakmontridgecapital.com** with details\n\nOur security team monitors for suspicious activity 24/7. We will investigate and, if necessary, freeze your account to protect your funds. Please act immediately and share any details that might help our investigation.",
     ],
   },
 

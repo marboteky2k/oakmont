@@ -19,7 +19,7 @@ const faqs = [
   { q: 'How long do withdrawals take?', a: 'Withdrawal requests are reviewed and processed within 24 hours on business days. Once approved, on-chain transaction time is typically 10–60 minutes.' },
   { q: 'My deposit is not showing — what should I do?', a: 'After submitting a deposit, our team reviews it within 1–4 hours. If it has been over 4 hours, contact support with your transaction hash (TX ID) and we will investigate.' },
   { q: 'Why was my KYC rejected?', a: 'Common reasons include blurry documents, expired IDs, or a mismatch between your document and submitted personal details. Re-submit with clear, valid, matching documents.' },
-  { q: 'How do I enable 2FA?', a: 'Go to Settings → Two-Factor Authentication → click "Enable". Scan the QR code with Google Authenticator or Authy, then confirm with the 6-digit code.' },
+  { q: 'How is my withdrawal verified?', a: 'When you submit a withdrawal, we send a 6-digit code to your registered email address. Enter that code to confirm and your request is submitted for processing within 24 hours.' },
   { q: 'Can I stop copy trading at any time?', a: 'Yes. In the Copy Trading section, scroll to "My Active Copies" and click the Stop button next to any trader. Your allocated funds will be returned to your wallet balance.' },
 ]
 

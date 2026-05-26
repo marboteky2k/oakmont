@@ -8,7 +8,6 @@ import { Mail, Lock, Eye, EyeOff, AlertTriangle, Clock, TrendingUp } from 'lucid
 import { useAuth } from '@/contexts/AuthContext'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { useLoginRateLimit } from '@/hooks/useLoginRateLimit'
-import { MfaChallengeModal } from '@/components/auth/MfaChallengeModal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import toast from 'react-hot-toast'
@@ -41,7 +40,7 @@ const TESTIMONIALS = [
 ]
 
 export default function Login() {
-  const { signIn, signInWithGoogle, setMfaVerified, session } = useAuth()
+  const { signIn, signInWithGoogle, session } = useAuth()
   const { settings: { brand } } = useSiteSettings()
   const navigate = useNavigate()
   const location = useLocation()
@@ -55,7 +54,6 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-  const [showMfa, setShowMfa] = useState(false)
   const [lockTimer, setLockTimer] = useState(0)
   const [testimonialIdx] = useState(() => Math.floor(Math.random() * TESTIMONIALS.length))
 
@@ -87,14 +85,10 @@ export default function Login() {
     }
     setLoading(true)
     try {
-      const { needsMfa } = await signIn(data.email, data.password)
+      await signIn(data.email, data.password)
       recordSuccess()
-      if (needsMfa) {
-        setShowMfa(true)
-      } else {
-        toast.success('Welcome back!')
-        navigate(from, { replace: true })
-      }
+      toast.success('Welcome back!')
+      navigate(from, { replace: true })
     } catch (err: any) {
       const result = recordFailure()
       if (result.locked) {
@@ -117,13 +111,6 @@ export default function Login() {
       toast.error(err.message ?? 'Google sign in failed')
       setGoogleLoading(false)
     }
-  }
-
-  const handleMfaVerified = () => {
-    setShowMfa(false)
-    setMfaVerified(true)
-    toast.success('Welcome back!')
-    navigate(from, { replace: true })
   }
 
   const formatLockTime = (s: number) => {
@@ -342,12 +329,6 @@ export default function Login() {
         </div>
       </motion.div>
 
-      <MfaChallengeModal
-        open={showMfa}
-        onClose={() => setShowMfa(false)}
-        onVerified={handleMfaVerified}
-        reason="Required to access your account"
-      />
     </div>
   )
 }

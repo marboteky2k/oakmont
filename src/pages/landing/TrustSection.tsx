@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Shield, Lock, Smartphone, BadgeCheck, Eye, Wallet } from 'lucide-react'
+import { Shield, Lock, Mail, BadgeCheck, Eye, Wallet } from 'lucide-react'
 
 const trustItems = [
   {
@@ -9,10 +9,10 @@ const trustItems = [
     desc: '256-bit SSL encryption protects all data in transit. Your personal information and transactions are always secured.',
   },
   {
-    icon: Smartphone,
+    icon: Mail,
     color: 'bg-purple-100 text-purple-600',
-    title: '2FA Protected',
-    desc: 'Two-factor authentication (TOTP) is required for withdrawals, KYC submissions, and sensitive account actions.',
+    title: 'Email Verified',
+    desc: 'Every withdrawal is secured with a one-time code sent to your registered email address — no app required.',
   },
   {
     icon: Wallet,

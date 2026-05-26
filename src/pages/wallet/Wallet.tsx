@@ -13,10 +13,8 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Modal } from '@/components/ui/Modal'
 import { Skeleton } from '@/components/ui/Skeleton'
-import { MfaChallengeModal } from '@/components/auth/MfaChallengeModal'
 import { formatCurrency } from '@/lib/utils'
 import { validateCryptoAddress, detectNetworkFromAddress } from '@/lib/crypto-validate'
-import { hasVerifiedMfa } from '@/lib/mfa'
 import type { Currency } from '@/types/database'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -91,7 +89,6 @@ export default function WalletPage() {
 
   const [depositModal, setDepositModal] = useState(false)
   const [withdrawModal, setWithdrawModal] = useState(false)
-  const [mfaModal, setMfaModal] = useState(false)
   const [currency, setCurrency] = useState<Currency>('USDT')
   const [amount, setAmount] = useState('')
   const [address, setAddress] = useState('')
@@ -99,9 +96,13 @@ export default function WalletPage() {
   const [txHash, setTxHash] = useState('')
   const [processing, setProcessing] = useState(false)
   const [copiedAddress, setCopiedAddress] = useState(false)
-  const [mfaRequired, setMfaRequired] = useState(false)
-  const [pendingWithdrawal, setPendingWithdrawal] = useState(false)
   const [depositNetwork, setDepositNetwork] = useState('')
+
+  // Email OTP verification for withdrawals
+  const [otpStep, setOtpStep]         = useState(false)   // true = OTP entry screen
+  const [otpCode, setOtpCode]         = useState('')
+  const [sendingOtp, setSendingOtp]   = useState(false)
+  const [verifyingOtp, setVerifyingOtp] = useState(false)
   // Receipt upload
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
@@ -267,19 +268,55 @@ export default function WalletPage() {
     }
   }
 
+  const closeWithdrawModal = () => {
+    setWithdrawModal(false)
+    setOtpStep(false)
+    setOtpCode('')
+  }
+
   const initiateWithdrawal = async () => {
     if (!address || !amount) { toast.error('Fill in all fields'); return }
     const { valid, error } = validateCryptoAddress(address, currency)
     if (!valid) { toast.error(error ?? 'Invalid wallet address'); return }
     const amt = parseFloat(amount)
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
-    const hasMfa = await hasVerifiedMfa()
-    if (hasMfa) {
-      setPendingWithdrawal(true)
-      setWithdrawModal(false)
-      setMfaModal(true)
-    } else {
-      setMfaRequired(true)
+    if (!profile?.email) { toast.error('No email on account'); return }
+
+    // Send email OTP via Supabase auth
+    setSendingOtp(true)
+    try {
+      const { error: otpErr } = await supabase.auth.signInWithOtp({
+        email: profile.email,
+        options: { shouldCreateUser: false },
+      })
+      if (otpErr) throw otpErr
+      setOtpStep(true)
+      toast.success(`Verification code sent to ${profile.email}`)
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to send verification code')
+    } finally {
+      setSendingOtp(false)
+    }
+  }
+
+  const verifyEmailOtp = async () => {
+    if (!profile?.email || otpCode.length < 6) { toast.error('Enter the 6-digit code'); return }
+    setVerifyingOtp(true)
+    try {
+      const { error: verifyErr } = await supabase.auth.verifyOtp({
+        email: profile.email,
+        token: otpCode,
+        type: 'email',
+      })
+      if (verifyErr) throw verifyErr
+      // OTP verified — now submit the withdrawal
+      await executeWithdrawal()
+    } catch (err: any) {
+      toast.error(err.message?.includes('Token') || err.message?.includes('invalid')
+        ? 'Incorrect code. Check your email and try again.'
+        : err.message ?? 'Verification failed')
+    } finally {
+      setVerifyingOtp(false)
     }
   }
 
@@ -287,13 +324,21 @@ export default function WalletPage() {
     if (!profile) return
     setProcessing(true)
     try {
-      const { data, error } = await supabase.functions.invoke('process-withdrawal', {
-        body: { userId: profile.id, amount: parseFloat(amount), currency, cryptoAddress: address.trim() },
-      })
-      if (error || data?.error) throw new Error(error?.message ?? data?.error)
+      // Insert withdrawal transaction directly (pending admin review)
+      const { error: txErr } = await supabase.from('transactions').insert({
+        user_id:      profile.id,
+        type:         'withdrawal',
+        amount:       parseFloat(amount),
+        currency,
+        status:       'pending',
+        crypto_address: address.trim(),
+        note:         'User withdrawal request — pending admin processing',
+        created_at:   new Date().toISOString(),
+      } as any)
+      if (txErr) throw txErr
+
       toast.success('Withdrawal request submitted! Processing within 24 hours.')
-      setWithdrawModal(false)
-      setPendingWithdrawal(false)
+      closeWithdrawModal()
       setAmount('')
       setAddress('')
     } catch (err: any) {
@@ -302,8 +347,6 @@ export default function WalletPage() {
       setProcessing(false)
     }
   }
-
-  const handleMfaVerified = () => { setMfaModal(false); executeWithdrawal() }
 
   // ── Crypto Swap ───────────────────────────────────────────────
   // Approximate USD rates — used for rate calculation only (not financial advice)
@@ -748,106 +791,146 @@ export default function WalletPage() {
       {/* ── Withdraw Modal ── */}
       <Modal
         open={withdrawModal}
-        onClose={() => { setWithdrawModal(false); setMfaRequired(false) }}
-        title="Withdraw Crypto"
+        onClose={closeWithdrawModal}
+        title={otpStep ? 'Verify Your Email' : 'Withdraw Crypto'}
       >
-        <div className="space-y-4">
-          {mfaRequired && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4"
-            >
-              <Shield className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-blue-800">2FA Required for Withdrawals</p>
-                <p className="text-xs text-blue-600 mt-0.5">Enable two-factor authentication in Settings → Security to unlock withdrawals.</p>
+        {otpStep ? (
+          /* ── Step 2: Email OTP verification ── */
+          <div className="space-y-5">
+            <div className="flex flex-col items-center text-center gap-3 py-2">
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center">
+                <Shield className="w-7 h-7 text-[#1E40AF]" />
               </div>
-            </motion.div>
-          )}
-
-          <Select
-            label="Select Currency"
-            options={[
-              { value: 'USDT', label: 'USDT' },
-              { value: 'BTC', label: 'Bitcoin (BTC)' },
-              { value: 'ETH', label: 'Ethereum (ETH)' },
-            ]}
-            value={currency}
-            onChange={e => { setCurrency(e.target.value as Currency); setAddress(''); setAddressError('') }}
-          />
-
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="text-sm font-medium text-slate-700">Amount</label>
-              <button
-                className="text-xs text-[#3B82F6] font-medium hover:text-[#1E40AF]"
-                onClick={() => {
-                  const max = currency === 'USDT' ? wallet?.balance_usdt : currency === 'BTC' ? wallet?.balance_btc : wallet?.balance_eth
-                  setAmount((max ?? 0).toString())
-                }}
-              >
-                Max
-              </button>
+              <div>
+                <p className="font-semibold text-slate-900">Check your email</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  We sent a 6-digit verification code to<br />
+                  <strong className="text-slate-700">{profile?.email}</strong>
+                </p>
+              </div>
             </div>
-            <Input
-              type="number"
-              placeholder="0.00"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              hint={`Available: ${
-                currency === 'USDT' ? (wallet?.balance_usdt ?? 0).toFixed(2) :
-                currency === 'BTC'  ? (wallet?.balance_btc ?? 0).toFixed(6) :
-                (wallet?.balance_eth ?? 0).toFixed(6)
-              } ${currency}`}
-            />
-          </div>
 
-          <div>
-            <Input
-              label={`Your ${currency} Wallet Address`}
-              placeholder={`Enter your ${currency} wallet address`}
-              value={address}
-              onChange={e => handleAddressChange(e.target.value)}
-              error={addressError}
-            />
-            {detectedNetwork && !addressError && (
-              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
-                <CheckCircle className="w-3 h-3" /> Detected network: {detectedNetwork}
+            <div>
+              <label className="text-sm font-medium text-slate-700 block mb-2">Verification Code</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="000000"
+                value={otpCode}
+                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                className="w-full text-center text-3xl font-mono tracking-[0.5em] border border-slate-200 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
+                autoFocus
+              />
+              <p className="text-xs text-slate-400 mt-2 text-center">
+                Didn't receive it?{' '}
+                <button
+                  onClick={() => { setOtpStep(false); setOtpCode('') }}
+                  className="text-[#3B82F6] hover:underline"
+                >
+                  Go back and resend
+                </button>
               </p>
-            )}
-          </div>
+            </div>
 
-          <div className="flex items-start gap-2 bg-yellow-50 rounded-xl p-3">
-            <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-            <div className="text-xs text-yellow-700 space-y-0.5">
-              <p><strong>Withdrawals are processed within 24 hours.</strong></p>
-              <p>Ensure your address is correct — transactions cannot be reversed.</p>
-              {!mfaRequired && <p className="flex items-center gap-1 font-medium"><Shield className="w-3 h-3" /> 2FA verification required.</p>}
+            <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-500 space-y-1">
+              <p><strong>Withdrawal summary</strong></p>
+              <p>Amount: <strong>{amount} {currency}</strong></p>
+              <p className="truncate">To: <strong>{address}</strong></p>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={closeWithdrawModal} className="flex-1">Cancel</Button>
+              <Button
+                onClick={verifyEmailOtp}
+                loading={verifyingOtp || processing}
+                disabled={otpCode.length < 6}
+                className="flex-1"
+              >
+                Confirm Withdrawal
+              </Button>
             </div>
           </div>
+        ) : (
+          /* ── Step 1: Withdrawal form ── */
+          <div className="space-y-4">
+            <Select
+              label="Select Currency"
+              options={[
+                { value: 'USDT', label: 'USDT' },
+                { value: 'BTC', label: 'Bitcoin (BTC)' },
+                { value: 'ETH', label: 'Ethereum (ETH)' },
+              ]}
+              value={currency}
+              onChange={e => { setCurrency(e.target.value as Currency); setAddress(''); setAddressError('') }}
+            />
 
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => { setWithdrawModal(false); setMfaRequired(false) }} className="flex-1">Cancel</Button>
-            <Button
-              onClick={initiateWithdrawal}
-              loading={processing}
-              disabled={!!addressError || !address || !amount}
-              className="flex-1"
-            >
-              <Shield className="w-4 h-4" /> {mfaRequired ? 'Enable 2FA First' : 'Withdraw'}
-            </Button>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-slate-700">Amount</label>
+                <button
+                  className="text-xs text-[#3B82F6] font-medium hover:text-[#1E40AF]"
+                  onClick={() => {
+                    const max = currency === 'USDT' ? wallet?.balance_usdt : currency === 'BTC' ? wallet?.balance_btc : wallet?.balance_eth
+                    setAmount((max ?? 0).toString())
+                  }}
+                >
+                  Max
+                </button>
+              </div>
+              <Input
+                type="number"
+                placeholder="0.00"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                hint={`Available: ${
+                  currency === 'USDT' ? (wallet?.balance_usdt ?? 0).toFixed(2) :
+                  currency === 'BTC'  ? (wallet?.balance_btc ?? 0).toFixed(6) :
+                  (wallet?.balance_eth ?? 0).toFixed(6)
+                } ${currency}`}
+              />
+            </div>
+
+            <div>
+              <Input
+                label={`Your ${currency} Wallet Address`}
+                placeholder={`Enter your ${currency} wallet address`}
+                value={address}
+                onChange={e => handleAddressChange(e.target.value)}
+                error={addressError}
+              />
+              {detectedNetwork && !addressError && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <CheckCircle className="w-3 h-3" /> Detected network: {detectedNetwork}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-start gap-2 bg-yellow-50 rounded-xl p-3">
+              <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-yellow-700 space-y-0.5">
+                <p><strong>Withdrawals are processed within 24 hours.</strong></p>
+                <p>Ensure your address is correct — transactions cannot be reversed.</p>
+                <p className="flex items-center gap-1 font-medium">
+                  <Shield className="w-3 h-3" /> Email verification required to confirm.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={closeWithdrawModal} className="flex-1">Cancel</Button>
+              <Button
+                onClick={initiateWithdrawal}
+                loading={sendingOtp}
+                disabled={!!addressError || !address || !amount}
+                className="flex-1"
+              >
+                <Shield className="w-4 h-4" /> Continue
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </Modal>
-
-      {/* MFA challenge for withdrawal */}
-      <MfaChallengeModal
-        open={mfaModal}
-        onClose={() => { setMfaModal(false); setPendingWithdrawal(false); setWithdrawModal(true) }}
-        onVerified={handleMfaVerified}
-        reason="Required to authorize this withdrawal"
-      />
 
       {/* ── Swap Modal ── */}
       <Modal

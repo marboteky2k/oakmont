@@ -1,19 +1,13 @@
 import { useState, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
-  User, Lock, Shield, Copy, CheckCircle, Smartphone, AlertTriangle,
-  Trash2, QrCode, Bell, Monitor, Globe, LogOut
+  User, Lock, Shield, Copy, CheckCircle,
+  Bell, Monitor, Globe, LogOut
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import { Badge } from '@/components/ui/Badge'
-import {
-  getMfaFactors, enrollMfa, verifyMfaEnrollment, unenrollMfa
-} from '@/lib/mfa'
-import type { MfaFactor } from '@/lib/mfa'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 
@@ -68,17 +62,6 @@ export default function Settings() {
   const [changingPw, setChangingPw] = useState(false)
   const [copied, setCopied]     = useState(false)
 
-  // MFA state
-  const [mfaFactors, setMfaFactors] = useState<MfaFactor[]>([])
-  const [loadingMfa, setLoadingMfa] = useState(true)
-  const [enrolling, setEnrolling]   = useState(false)
-  const [qrCode, setQrCode]         = useState('')
-  const [secret, setSecret]         = useState('')
-  const [factorId, setFactorId]     = useState('')
-  const [totpCode, setTotpCode]     = useState('')
-  const [verifyingTotp, setVerifyingTotp] = useState(false)
-  const [unenrolling, setUnenrolling]     = useState(false)
-
   // Notification prefs
   const prefsKey = `notif_prefs_${profile?.id ?? 'anon'}`
   const [notifPrefs, setNotifPrefs] = useState<NotifPrefs>(() => {
@@ -92,19 +75,7 @@ export default function Settings() {
   const [session, setSession] = useState<any>(null)
   const [revokingAll, setRevokingAll] = useState(false)
 
-  const loadMfaFactors = async () => {
-    try {
-      const factors = await getMfaFactors()
-      setMfaFactors(factors)
-    } catch {
-      setMfaFactors([])
-    } finally {
-      setLoadingMfa(false)
-    }
-  }
-
   useEffect(() => {
-    loadMfaFactors()
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
   }, [])
 
@@ -149,47 +120,6 @@ export default function Settings() {
     }
   }
 
-  const startEnrollMfa = async () => {
-    setEnrolling(true)
-    try {
-      const { qrCode: qr, secret: sec, factorId: fid } = await enrollMfa()
-      setQrCode(qr)
-      setSecret(sec)
-      setFactorId(fid)
-    } catch (err: any) {
-      toast.error(err.message)
-      setEnrolling(false)
-    }
-  }
-
-  const confirmEnrollment = async () => {
-    if (totpCode.length !== 6) { toast.error('Enter the 6-digit code'); return }
-    setVerifyingTotp(true)
-    try {
-      await verifyMfaEnrollment(factorId, totpCode)
-      toast.success('Two-factor authentication enabled!')
-      setEnrolling(false); setQrCode(''); setSecret(''); setTotpCode('')
-      await loadMfaFactors()
-    } catch (err: any) {
-      toast.error(err.message?.includes('Invalid') ? 'Incorrect code. Try again.' : err.message)
-    } finally {
-      setVerifyingTotp(false)
-    }
-  }
-
-  const removeMfa = async (id: string) => {
-    setUnenrolling(true)
-    try {
-      await unenrollMfa(id)
-      toast.success('Two-factor authentication removed')
-      await loadMfaFactors()
-    } catch (err: any) {
-      toast.error(err.message)
-    } finally {
-      setUnenrolling(false)
-    }
-  }
-
   const updateNotifPref = (channel: 'email' | 'inapp', key: string, val: boolean) => {
     const next = { ...notifPrefs, [channel]: { ...notifPrefs[channel], [key]: val } }
     setNotifPrefs(next)
@@ -208,9 +138,6 @@ export default function Settings() {
       setRevokingAll(false)
     }
   }
-
-  const verifiedFactor = mfaFactors.find(f => f.status === 'verified')
-  const hasMfa = !!verifiedFactor
 
   // Detect device info from user agent
   const ua = navigator.userAgent
@@ -261,99 +188,6 @@ export default function Settings() {
             Update Password
           </Button>
         </div>
-      </Card>
-
-      {/* ── Two-Factor Auth ── */}
-      <Card>
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-9 h-9 rounded-xl bg-purple-100 flex items-center justify-center">
-            <Smartphone className="w-4 h-4 text-purple-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="font-semibold text-slate-900">Two-Factor Authentication</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Adds an extra layer of security to your account</p>
-          </div>
-          {hasMfa && <Badge variant="success" size="md">Enabled</Badge>}
-        </div>
-
-        {loadingMfa ? (
-          <div className="h-8 animate-pulse bg-slate-100 rounded-lg" />
-        ) : hasMfa ? (
-          <div className="space-y-3">
-            <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl border border-green-100">
-              <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-              <div className="flex-1">
-                <p className="text-sm font-medium text-green-800">Authenticator App Connected</p>
-                <p className="text-xs text-green-600">Required for withdrawals and sensitive actions</p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 bg-yellow-50 rounded-xl p-3">
-              <AlertTriangle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-yellow-700">
-                Removing 2FA will reduce your account security and disable withdrawals.
-              </p>
-            </div>
-            <Button variant="danger" size="sm" onClick={() => removeMfa(verifiedFactor!.id)} loading={unenrolling} icon={<Trash2 className="w-3.5 h-3.5" />}>
-              Remove 2FA
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-start gap-3 bg-blue-50 rounded-xl p-4">
-              <Shield className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-800">Protect your account</p>
-                <p className="text-xs text-blue-600 mt-0.5">
-                  Enable 2FA to secure withdrawals and account changes. Use Google Authenticator, Authy, or any TOTP app.
-                </p>
-              </div>
-            </div>
-
-            {!enrolling ? (
-              <Button onClick={startEnrollMfa} icon={<QrCode className="w-4 h-4" />}>
-                Enable Two-Factor Authentication
-              </Button>
-            ) : (
-              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-sm font-medium text-slate-700 mb-3">Step 1: Scan this QR code with your authenticator app</p>
-                  {qrCode && (
-                    <div className="flex justify-center mb-3">
-                      <img src={qrCode} alt="MFA QR Code" className="w-40 h-40 rounded-xl border border-slate-200" />
-                    </div>
-                  )}
-                  <div className="bg-white rounded-lg border border-slate-200 p-2.5">
-                    <p className="text-xs text-slate-500 mb-1">Or enter this secret manually:</p>
-                    <code className="text-xs font-mono text-slate-700 break-all">{secret}</code>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 rounded-xl p-4">
-                  <p className="text-sm font-medium text-slate-700 mb-3">Step 2: Enter the 6-digit code from your app</p>
-                  <div className="flex gap-3">
-                    <Input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      placeholder="000000"
-                      value={totpCode}
-                      onChange={e => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      className="text-center text-2xl font-mono tracking-widest"
-                    />
-                    <Button onClick={confirmEnrollment} loading={verifyingTotp} disabled={totpCode.length !== 6}>Verify</Button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => { setEnrolling(false); setQrCode(''); setSecret(''); setTotpCode('') }}
-                  className="text-sm text-slate-500 hover:text-slate-700 transition-colors"
-                >
-                  Cancel setup
-                </button>
-              </motion.div>
-            )}
-          </div>
-        )}
       </Card>
 
       {/* ── Notification Preferences ── */}
