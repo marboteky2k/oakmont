@@ -23,6 +23,7 @@ export interface User {
   role: UserRole
   kyc_status: KycStatus
   is_active: boolean
+  email_verified: boolean
   referral_code?: string
   referred_by?: string
   country?: string
@@ -279,6 +280,8 @@ export interface UserTrade {
   profit_loss: number
   profit_loss_pct: number
   leverage: number
+  stop_loss?: number | null
+  take_profit?: number | null
   status: TradeStatusType
   opened_at: string
   closed_at?: string | null

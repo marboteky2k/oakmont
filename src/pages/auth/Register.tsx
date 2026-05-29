@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { supabase } from '@/lib/supabase'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -198,12 +199,14 @@ export default function Register() {
         assetInterests: step2Data.assets,
       })
 
-      // Auto sign-in so the user lands on KYC immediately.
-      // The DB trigger auto-confirms the account so signIn works right away.
+      // Auto sign-in so the user is authenticated before we send the verification email.
+      // The DB trigger auto-confirms the auth session so signIn works right away.
       try {
         await signIn(step1Data.email, data.password)
-        toast.success('Account created! Please complete your identity verification to unlock all features.')
-        navigate('/kyc')
+        // Send the Resend verification email (requires auth JWT)
+        supabase.functions.invoke('send-verification').catch(() => {})
+        toast.success('Account created! Check your email to verify your address.')
+        navigate('/verify-email', { state: { email: step1Data.email } })
       } catch {
         // Sign-in failed for some transient reason — send to login as fallback.
         toast.success('Account created! Sign in to continue.')

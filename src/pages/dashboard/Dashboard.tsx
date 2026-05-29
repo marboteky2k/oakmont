@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   TrendingUp, TrendingDown, Wallet, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Plus, Eye, Activity, Gift,
-  Shield, AlertTriangle, Clock,
+  Shield, AlertTriangle, Clock, Mail,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -136,6 +136,31 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* ── Email verification banner ── */}
+      {profile && !profile.email_verified && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-blue-50 border border-blue-200"
+        >
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-100">
+            <Mail className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-sm text-blue-800">Verify your email address</p>
+            <p className="text-xs mt-0.5 leading-relaxed text-blue-600">
+              A verification link was sent to <strong>{profile.email}</strong>. Click it to secure your account and unlock all features.
+            </p>
+          </div>
+          <Link to="/verify-email" className="flex-shrink-0">
+            <button className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap">
+              Resend Link
+            </button>
+          </Link>
+        </motion.div>
+      )}
+
       {/* ── KYC verification banner ── */}
       {kycBanner && KycBannerIcon && (
         <motion.div

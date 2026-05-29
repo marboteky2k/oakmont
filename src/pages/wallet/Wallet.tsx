@@ -282,14 +282,14 @@ export default function WalletPage() {
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
     if (!profile?.email) { toast.error('No email on account'); return }
 
-    // Send email OTP via Supabase auth
+    // Send email OTP via Resend (send-otp Edge Function)
     setSendingOtp(true)
     try {
-      const { error: otpErr } = await supabase.auth.signInWithOtp({
-        email: profile.email,
-        options: { shouldCreateUser: false },
+      const { data, error: fnErr } = await supabase.functions.invoke('send-otp', {
+        body: { purpose: 'withdrawal' },
       })
-      if (otpErr) throw otpErr
+      if (fnErr) throw fnErr
+      if (data?.error) throw new Error(data.error)
       setOtpStep(true)
       toast.success(`Verification code sent to ${profile.email}`)
     } catch (err: any) {
@@ -300,21 +300,18 @@ export default function WalletPage() {
   }
 
   const verifyEmailOtp = async () => {
-    if (!profile?.email || otpCode.length < 6) { toast.error('Enter the 6-digit code'); return }
+    if (otpCode.length < 6) { toast.error('Enter the 6-digit code'); return }
     setVerifyingOtp(true)
     try {
-      const { error: verifyErr } = await supabase.auth.verifyOtp({
-        email: profile.email,
-        token: otpCode,
-        type: 'email',
+      const { data, error: fnErr } = await supabase.functions.invoke('verify-otp', {
+        body: { otp: otpCode, purpose: 'withdrawal' },
       })
-      if (verifyErr) throw verifyErr
+      if (fnErr) throw fnErr
+      if (data?.error) throw new Error(data.error)
       // OTP verified — now submit the withdrawal
       await executeWithdrawal()
     } catch (err: any) {
-      toast.error(err.message?.includes('Token') || err.message?.includes('invalid')
-        ? 'Incorrect code. Check your email and try again.'
-        : err.message ?? 'Verification failed')
+      toast.error(err.message ?? 'Verification failed. Check your code and try again.')
     } finally {
       setVerifyingOtp(false)
     }
