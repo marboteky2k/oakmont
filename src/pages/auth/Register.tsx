@@ -150,7 +150,7 @@ function SelectField({
 }
 
 export default function Register() {
-  const { signUp, session } = useAuth()
+  const { signUp, signIn, session } = useAuth()
   const { settings: { brand } } = useSiteSettings()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -197,10 +197,20 @@ export default function Register() {
         investmentGoals: step2Data.goals,
         assetInterests: step2Data.assets,
       })
-      toast.success('Account created! Check your email for the verification link.')
-      navigate('/verify-email', { state: { email: step1Data.email } })
+
+      // Auto sign-in so the user lands on KYC immediately.
+      // The DB trigger auto-confirms the account so signIn works right away.
+      try {
+        await signIn(step1Data.email, data.password)
+        toast.success('Account created! Please complete your identity verification to unlock all features.')
+        navigate('/kyc')
+      } catch {
+        // Sign-in failed for some transient reason — send to login as fallback.
+        toast.success('Account created! Sign in to continue.')
+        navigate('/login', { state: { email: step1Data.email } })
+      }
     } catch (err: any) {
-      toast.error(err.message ?? 'Registration failed')
+      toast.error(err.message ?? 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }

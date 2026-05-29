@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   TrendingUp, TrendingDown, Wallet, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Plus, Eye, Activity, Gift,
+  Shield, AlertTriangle, Clock,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -11,7 +12,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { StatCardSkeleton } from '@/components/ui/Skeleton'
 import { formatCurrency, getStatusColor, timeAgo } from '@/lib/utils'
-import type { Wallet as WalletType, CopySubscription, Investment, Transaction } from '@/types/database'
+import type { Wallet as WalletType, CopySubscription, Investment, Transaction, KycDocument } from '@/types/database'
 import { PortfolioGrowthChart, AssetAllocationChart } from '@/components/charts'
 
 function getGreeting() {
@@ -41,6 +42,7 @@ export default function Dashboard() {
   const [subscriptions, setSubscriptions] = useState<CopySubscription[]>([])
   const [investments, setInvestments] = useState<Investment[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [kycDoc, setKycDoc] = useState<KycDocument | null | undefined>(undefined) // undefined = loading
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -51,12 +53,14 @@ export default function Dashboard() {
         supabase.from('copy_subscriptions').select('*, copy_traders(*)').eq('investor_id', profile.id).eq('status', 'active').limit(6),
         supabase.from('investments').select('*, investment_plans(*)').eq('user_id', profile.id).eq('status', 'active').limit(5),
         supabase.from('transactions').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(5),
+        supabase.from('kyc_documents').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ] as const)
-      const [w, s, inv, tx] = results as [any, any, any, any]
+      const [w, s, inv, tx, kyc] = results as [any, any, any, any, any]
       if (w.data) setWallet(w.data)
       if (s.data) setSubscriptions(s.data)
       if (inv.data) setInvestments(inv.data)
       if (tx.data) setTransactions(tx.data)
+      setKycDoc(kyc.data ?? null)
       setLoading(false)
     }
     fetch()
@@ -81,8 +85,80 @@ export default function Dashboard() {
     { label: 'Active Investments',   value: investments.length.toString(), change: formatCurrency(investedTotal) + ' total',   up: true, icon: BarChart3, color: 'bg-amber-50 text-amber-600' },
   ]
 
+  // ── KYC banner config ─────────────────────────────────────────
+  const showKycBanner = profile && profile.kyc_status !== 'verified' && kycDoc !== undefined
+  const kycBanner = (() => {
+    if (!showKycBanner) return null
+    if (profile!.kyc_status === 'rejected') {
+      return {
+        icon: AlertTriangle,
+        iconBg: 'bg-red-100',
+        iconColor: 'text-red-600',
+        wrapperClass: 'bg-red-50 border border-red-200',
+        titleClass: 'text-red-800',
+        textClass: 'text-red-600',
+        title: 'KYC Verification Rejected',
+        message: 'Your identity documents were rejected. Please review the reason on the KYC page and re-submit.',
+        btnClass: 'bg-red-600 hover:bg-red-700 text-white',
+        btnLabel: 'Re-submit KYC',
+      }
+    }
+    if (kycDoc && kycDoc.status === 'pending') {
+      return {
+        icon: Clock,
+        iconBg: 'bg-yellow-100',
+        iconColor: 'text-yellow-600',
+        wrapperClass: 'bg-yellow-50 border border-yellow-200',
+        titleClass: 'text-yellow-800',
+        textClass: 'text-yellow-600',
+        title: 'KYC Under Review',
+        message: 'Your documents have been submitted and are being reviewed by our compliance team. This typically takes 24–48 hours.',
+        btnClass: 'bg-yellow-500 hover:bg-yellow-600 text-white',
+        btnLabel: 'View Status',
+      }
+    }
+    // Not started
+    return {
+      icon: Shield,
+      iconBg: 'bg-amber-100',
+      iconColor: 'text-amber-600',
+      wrapperClass: 'bg-amber-50 border border-amber-200',
+      titleClass: 'text-amber-800',
+      textClass: 'text-amber-600',
+      title: 'Complete Your KYC Verification',
+      message: 'Verify your identity to unlock withdrawals, full investment access, referral payouts, and higher trading limits.',
+      btnClass: 'bg-amber-500 hover:bg-amber-600 text-white',
+      btnLabel: 'Verify Now →',
+    }
+  })()
+  // Extract icon for JSX — must be PascalCase for React to treat as component
+  const KycBannerIcon = kycBanner?.icon ?? null
+
   return (
     <div className="space-y-6">
+      {/* ── KYC verification banner ── */}
+      {kycBanner && KycBannerIcon && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className={`rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 ${kycBanner.wrapperClass}`}
+        >
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${kycBanner.iconBg}`}>
+            <KycBannerIcon className={`w-5 h-5 ${kycBanner.iconColor}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className={`font-semibold text-sm ${kycBanner.titleClass}`}>{kycBanner.title}</p>
+            <p className={`text-xs mt-0.5 leading-relaxed ${kycBanner.textClass}`}>{kycBanner.message}</p>
+          </div>
+          <Link to="/kyc" className="flex-shrink-0">
+            <button className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${kycBanner.btnClass}`}>
+              {kycBanner.btnLabel}
+            </button>
+          </Link>
+        </motion.div>
+      )}
+
       {/* Welcome banner */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}

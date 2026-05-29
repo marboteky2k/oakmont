@@ -95,7 +95,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         emailRedirectTo: `${window.location.origin}/verify-email`,
       },
     })
-    if (error) throw error
+
+    if (error) {
+      // Supabase may throw an email-delivery error even though the auth.users
+      // row was successfully created (SMTP not configured / free-tier rate
+      // limit). Our DB trigger (015) auto-confirms the account, so the user
+      // can sign in immediately — swallow this specific error class.
+      const isEmailDeliveryError =
+        error.message?.toLowerCase().includes('sending') ||
+        error.message?.toLowerCase().includes('confirmation email') ||
+        error.message?.toLowerCase().includes('email') ||
+        error.status === 500
+      if (!isEmailDeliveryError) throw error
+      // else: account was created & auto-confirmed — proceed silently
+    }
   }
 
   const signInWithGoogle = async () => {

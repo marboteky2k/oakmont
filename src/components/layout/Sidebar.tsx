@@ -141,6 +141,9 @@ function SidebarContent({ brand, profile, navItems, onClose, onSignOut, unreadCo
           // Notifications link gets the unread badge
           const isNotifLink = to === '/notifications'
           const badge = isNotifLink && unreadCount > 0 ? unreadCount : 0
+          // KYC link gets an amber pulse dot when not verified
+          const isKycLink = to === '/kyc'
+          const needsKyc = isKycLink && profile?.kyc_status !== 'verified'
           return (
             <NavLink
               key={to}
@@ -166,12 +169,21 @@ function SidebarContent({ brand, profile, navItems, onClose, onSignOut, unreadCo
                         {badge > 99 ? '99+' : badge}
                       </span>
                     )}
+                    {needsKyc && badge === 0 && (
+                      <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-amber-400 rounded-full animate-pulse" />
+                    )}
                   </span>
                   <span className="flex-1">{label}</span>
                   {/* Show unread count next to label too (when not active) */}
                   {badge > 0 && !isActive && (
                     <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[20px] text-center leading-tight">
                       {badge > 99 ? '99+' : badge}
+                    </span>
+                  )}
+                  {/* KYC pending chip */}
+                  {needsKyc && !isActive && (
+                    <span className="bg-amber-400/20 text-amber-300 text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-tight">
+                      {profile?.kyc_status === 'rejected' ? 'Rejected' : 'Required'}
                     </span>
                   )}
                   {isActive && <ChevronRight className="w-3 h-3 text-[#3B82F6]" />}

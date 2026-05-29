@@ -45,6 +45,7 @@ export default function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as any)?.from?.pathname ?? '/dashboard'
+  const prefillEmail = (location.state as any)?.email ?? ''
 
   // Already logged in → send to dashboard
   useEffect(() => {
@@ -76,6 +77,7 @@ export default function Login() {
 
   const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
+    defaultValues: { email: prefillEmail },
   })
 
   const onSubmit = async (data: FormData) => {
