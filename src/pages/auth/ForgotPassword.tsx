@@ -26,10 +26,11 @@ export default function ForgotPassword() {
   const onSubmit = async (data: FormData) => {
     setLoading(true)
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { data: result, error } = await supabase.functions.invoke('send-password-reset', {
+        body: { email: data.email },
       })
       if (error) throw error
+      if (result?.error) throw new Error(result.error)
       setSent(true)
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to send reset email')

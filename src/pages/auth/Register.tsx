@@ -151,7 +151,7 @@ function SelectField({
 }
 
 export default function Register() {
-  const { signUp, signIn, session } = useAuth()
+  const { signUp, session } = useAuth()
   const { settings: { brand } } = useSiteSettings()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -163,6 +163,7 @@ export default function Register() {
 
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [watchedPassword, setWatchedPassword] = useState('')
   const [math, setMath] = useState(generateMath)
@@ -199,19 +200,14 @@ export default function Register() {
         assetInterests: step2Data.assets,
       })
 
-      // Auto sign-in so the user is authenticated before we send the verification email.
-      // The DB trigger auto-confirms the auth session so signIn works right away.
-      try {
-        await signIn(step1Data.email, data.password)
-        // Send the Resend verification email (requires auth JWT)
-        supabase.functions.invoke('send-verification').catch(() => {})
-        toast.success('Account created! Check your email to verify your address.')
-        navigate('/verify-email', { state: { email: step1Data.email } })
-      } catch {
-        // Sign-in failed for some transient reason — send to login as fallback.
-        toast.success('Account created! Sign in to continue.')
-        navigate('/login', { state: { email: step1Data.email } })
-      }
+      // Send verification email (public function — works before user has a session)
+      supabase.functions.invoke('send-verification', {
+        body: { email: step1Data.email },
+      }).catch(() => {})
+
+      // Show success screen (step 4) — do NOT auto-login
+      setRegisteredEmail(step1Data.email)
+      setStep(4)
     } catch (err: any) {
       toast.error(err.message ?? 'Registration failed. Please try again.')
     } finally {
@@ -219,7 +215,59 @@ export default function Register() {
     }
   }
 
-  const panel = PANEL_CONTENT[step - 1]
+  const panel = PANEL_CONTENT[Math.min(step - 1, 2)]
+
+  // ── Step 4: Registration success screen ─────────────────────────
+  if (step === 4) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1E40AF] via-[#2563eb] to-[#3B82F6] flex items-center justify-center p-4">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden"
+        >
+          <div className="bg-gradient-to-r from-[#1E40AF] to-[#3B82F6] px-8 pt-8 pb-10 text-white text-center">
+            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-3">
+              <CheckCircle className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-xl font-bold">Registration Successful!</h1>
+            <p className="text-blue-200 text-sm mt-1">One last step before you can sign in</p>
+          </div>
+          <div className="px-8 py-8 -mt-4">
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 space-y-5">
+              <div className="text-center">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-3">
+                  <Mail className="w-8 h-8 text-[#3B82F6]" />
+                </div>
+                <p className="font-semibold text-slate-900 text-lg">Check your email inbox</p>
+                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+                  We sent a verification link to{' '}
+                  <span className="font-semibold text-slate-700 break-all">{registeredEmail}</span>.<br/>
+                  Click the link to verify your email before logging in.
+                </p>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-1.5">
+                {[
+                  'Check your spam or junk folder if you don\'t see it',
+                  'The verification link expires after 24 hours',
+                  'You must verify before you can sign in',
+                ].map(tip => (
+                  <p key={tip} className="text-xs text-blue-700 flex items-start gap-1.5">
+                    <span className="text-blue-400 font-bold mt-0.5">·</span> {tip}
+                  </p>
+                ))}
+              </div>
+              <Link to="/login">
+                <button className="w-full py-3 rounded-xl bg-[#1E40AF] hover:bg-[#1e3a8a] text-white font-semibold text-sm transition-colors">
+                  Back to Sign In
+                </button>
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-blue-50 flex items-center justify-center p-4 py-8">

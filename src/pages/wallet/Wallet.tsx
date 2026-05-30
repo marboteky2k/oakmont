@@ -98,11 +98,9 @@ export default function WalletPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [depositNetwork, setDepositNetwork] = useState('')
 
-  // Email OTP verification for withdrawals
-  const [otpStep, setOtpStep]         = useState(false)   // true = OTP entry screen
-  const [otpCode, setOtpCode]         = useState('')
-  const [sendingOtp, setSendingOtp]   = useState(false)
-  const [verifyingOtp, setVerifyingOtp] = useState(false)
+  // Withdrawal verification (email token link)
+  const [withdrawSent, setWithdrawSent]   = useState(false) // true = email sent, show confirmation screen
+  const [sendingWithdraw, setSendingWithdraw] = useState(false)
   // Receipt upload
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
@@ -270,8 +268,10 @@ export default function WalletPage() {
 
   const closeWithdrawModal = () => {
     setWithdrawModal(false)
-    setOtpStep(false)
-    setOtpCode('')
+    setWithdrawSent(false)
+    setAmount('')
+    setAddress('')
+    setAddressError('')
   }
 
   const initiateWithdrawal = async () => {
@@ -282,66 +282,24 @@ export default function WalletPage() {
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
     if (!profile?.email) { toast.error('No email on account'); return }
 
-    // Send email OTP via Resend (send-otp Edge Function)
-    setSendingOtp(true)
-    try {
-      const { data, error: fnErr } = await supabase.functions.invoke('send-otp', {
-        body: { purpose: 'withdrawal' },
-      })
-      if (fnErr) throw fnErr
-      if (data?.error) throw new Error(data.error)
-      setOtpStep(true)
-      toast.success(`Verification code sent to ${profile.email}`)
-    } catch (err: any) {
-      toast.error(err.message ?? 'Failed to send verification code')
-    } finally {
-      setSendingOtp(false)
+    // Check KYC
+    if (profile.kyc_status !== 'verified') {
+      toast.error('KYC verification required before withdrawals. Please complete your identity verification.')
+      return
     }
-  }
 
-  const verifyEmailOtp = async () => {
-    if (otpCode.length < 6) { toast.error('Enter the 6-digit code'); return }
-    setVerifyingOtp(true)
+    setSendingWithdraw(true)
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('verify-otp', {
-        body: { otp: otpCode, purpose: 'withdrawal' },
+      const { data, error: fnErr } = await supabase.functions.invoke('send-withdrawal-verification', {
+        body: { amount: amt, currency, address: address.trim(), network: detectedNetwork ?? undefined },
       })
-      if (fnErr) throw fnErr
-      if (data?.error) throw new Error(data.error)
-      // OTP verified — now submit the withdrawal
-      await executeWithdrawal()
+      if (fnErr || data?.error) throw new Error(data?.error ?? fnErr?.message ?? 'Failed to initiate withdrawal')
+      setWithdrawSent(true)
+      toast.success(`Confirmation email sent to ${profile.email}`)
     } catch (err: any) {
-      toast.error(err.message ?? 'Verification failed. Check your code and try again.')
+      toast.error(err.message ?? 'Failed to send confirmation email')
     } finally {
-      setVerifyingOtp(false)
-    }
-  }
-
-  const executeWithdrawal = async () => {
-    if (!profile) return
-    setProcessing(true)
-    try {
-      // Insert withdrawal transaction directly (pending admin review)
-      const { error: txErr } = await supabase.from('transactions').insert({
-        user_id:      profile.id,
-        type:         'withdrawal',
-        amount:       parseFloat(amount),
-        currency,
-        status:       'pending',
-        crypto_address: address.trim(),
-        note:         'User withdrawal request — pending admin processing',
-        created_at:   new Date().toISOString(),
-      } as any)
-      if (txErr) throw txErr
-
-      toast.success('Withdrawal request submitted! Processing within 24 hours.')
-      closeWithdrawModal()
-      setAmount('')
-      setAddress('')
-    } catch (err: any) {
-      toast.error(err.message ?? 'Withdrawal failed')
-    } finally {
-      setProcessing(false)
+      setSendingWithdraw(false)
     }
   }
 
@@ -789,68 +747,52 @@ export default function WalletPage() {
       <Modal
         open={withdrawModal}
         onClose={closeWithdrawModal}
-        title={otpStep ? 'Verify Your Email' : 'Withdraw Crypto'}
+        title={withdrawSent ? 'Check Your Email' : 'Withdraw Crypto'}
       >
-        {otpStep ? (
-          /* ── Step 2: Email OTP verification ── */
-          <div className="space-y-5">
-            <div className="flex flex-col items-center text-center gap-3 py-2">
-              <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center">
-                <Shield className="w-7 h-7 text-[#1E40AF]" />
+        {withdrawSent ? (
+          /* ── Email confirmation sent screen ── */
+          <div className="space-y-5 text-center">
+            <div className="flex flex-col items-center gap-3 py-2">
+              <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center">
+                <CheckCircle className="w-8 h-8 text-green-500" />
               </div>
               <div>
-                <p className="font-semibold text-slate-900">Check your email</p>
-                <p className="text-sm text-slate-500 mt-1">
-                  We sent a 6-digit verification code to<br />
-                  <strong className="text-slate-700">{profile?.email}</strong>
+                <p className="font-semibold text-slate-900 text-lg">Confirmation email sent!</p>
+                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+                  We sent a confirmation link to<br />
+                  <strong className="text-slate-700">{profile?.email}</strong>.<br />
+                  Click the link in the email to authorise this withdrawal.
                 </p>
               </div>
             </div>
 
-            <div>
-              <label className="text-sm font-medium text-slate-700 block mb-2">Verification Code</label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="000000"
-                value={otpCode}
-                onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="w-full text-center text-3xl font-mono tracking-[0.5em] border border-slate-200 rounded-xl px-4 py-4 focus:outline-none focus:ring-2 focus:ring-[#3B82F6] focus:border-transparent"
-                autoFocus
-              />
-              <p className="text-xs text-slate-400 mt-2 text-center">
-                Didn't receive it?{' '}
-                <button
-                  onClick={() => { setOtpStep(false); setOtpCode('') }}
-                  className="text-[#3B82F6] hover:underline"
-                >
-                  Go back and resend
-                </button>
+            <div className="bg-slate-50 rounded-xl p-4 text-left text-sm space-y-2">
+              <p className="font-semibold text-slate-700">Withdrawal summary</p>
+              <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="font-medium">{amount} {currency}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400 flex-shrink-0">Address</span><span className="font-mono text-xs text-slate-700 break-all text-right">{address}</span></div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="text-xs text-amber-700">
+                <strong>The confirmation link expires in 30 minutes.</strong> If it expires, you'll need to submit a new withdrawal request.
               </p>
             </div>
 
-            <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-500 space-y-1">
-              <p><strong>Withdrawal summary</strong></p>
-              <p>Amount: <strong>{amount} {currency}</strong></p>
-              <p className="truncate">To: <strong>{address}</strong></p>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={closeWithdrawModal} className="flex-1">Cancel</Button>
-              <Button
-                onClick={verifyEmailOtp}
-                loading={verifyingOtp || processing}
-                disabled={otpCode.length < 6}
-                className="flex-1"
-              >
-                Confirm Withdrawal
-              </Button>
-            </div>
+            <Button variant="outline" onClick={closeWithdrawModal} className="w-full">Close</Button>
           </div>
         ) : (
-          /* ── Step 1: Withdrawal form ── */
+          /* ── Withdrawal form ── */
           <div className="space-y-4">
+            {profile?.kyc_status !== 'verified' && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs text-amber-700">
+                  <strong>KYC required.</strong> You must complete identity verification before making withdrawals.{' '}
+                  <a href="/kyc" className="underline font-semibold">Verify now →</a>
+                </p>
+              </div>
+            )}
+
             <Select
               label="Select Currency"
               options={[
@@ -906,11 +848,9 @@ export default function WalletPage() {
             <div className="flex items-start gap-2 bg-yellow-50 rounded-xl p-3">
               <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-yellow-700 space-y-0.5">
-                <p><strong>Withdrawals are processed within 24 hours.</strong></p>
+                <p><strong>Withdrawals require email confirmation.</strong></p>
+                <p>A confirmation link will be sent to your registered email. The link expires in 30 minutes.</p>
                 <p>Ensure your address is correct — transactions cannot be reversed.</p>
-                <p className="flex items-center gap-1 font-medium">
-                  <Shield className="w-3 h-3" /> Email verification required to confirm.
-                </p>
               </div>
             </div>
 
@@ -918,11 +858,11 @@ export default function WalletPage() {
               <Button variant="outline" onClick={closeWithdrawModal} className="flex-1">Cancel</Button>
               <Button
                 onClick={initiateWithdrawal}
-                loading={sendingOtp}
-                disabled={!!addressError || !address || !amount}
+                loading={sendingWithdraw}
+                disabled={!!addressError || !address || !amount || profile?.kyc_status !== 'verified'}
                 className="flex-1"
               >
-                <Shield className="w-4 h-4" /> Continue
+                <Shield className="w-4 h-4" /> Send Confirmation Email
               </Button>
             </div>
           </div>

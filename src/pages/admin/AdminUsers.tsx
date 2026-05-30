@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Search, UserCheck, UserX, DollarSign, ChevronLeft, ChevronRight,
-  Download, Trash2, Shield, RefreshCw, Eye, X, Plus, Minus,
+  Download, Trash2, Shield, RefreshCw, Eye, X, Plus, Minus, Mail,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Card } from '@/components/ui/Card'
@@ -111,6 +111,25 @@ export default function AdminUsers() {
     toast.success(`User ${user.is_active ? 'suspended' : 'activated'}`)
     setChanging(null)
     fetchUsers()
+  }
+
+  const resendVerification = async (user: User) => {
+    setChanging(user.id)
+    try {
+      const { data, error } = await supabase.functions.invoke('send-verification', {
+        body: { email: user.email },
+      })
+      if (error || data?.error) throw new Error(data?.error ?? error?.message)
+      if (data?.already_verified) {
+        toast.success(`${user.full_name}'s email is already verified`)
+      } else {
+        toast.success(`Verification email resent to ${user.email}`)
+      }
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to resend')
+    } finally {
+      setChanging(null)
+    }
   }
 
   const bulkSuspend = async () => {
@@ -242,7 +261,7 @@ export default function AdminUsers() {
                     onChange={toggleAllOnPage}
                   />
                 </th>
-                {['User', 'Role', 'KYC', 'Status', 'Joined', 'Actions'].map((h) => (
+                {['User', 'Role', 'KYC', 'Email', 'Status', 'Joined', 'Actions'].map((h) => (
                   <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">
                     {h}
                   </th>
@@ -253,14 +272,14 @@ export default function AdminUsers() {
               {loading ? (
                 [...Array(8)].map((_, i) => (
                   <tr key={i}>
-                    {[...Array(7)].map((__, j) => (
+                    {[...Array(8)].map((__, j) => (
                       <td key={j} className="px-4 py-3"><div className="h-4 bg-slate-100 rounded animate-pulse" /></td>
                     ))}
                   </tr>
                 ))
               ) : paginated.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-16 text-slate-400">No users match these filters.</td>
+                  <td colSpan={8} className="text-center py-16 text-slate-400">No users match these filters.</td>
                 </tr>
               ) : (
                 paginated.map((user, i) => (
@@ -305,6 +324,11 @@ export default function AdminUsers() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3">
+                      <Badge variant={(user as any).email_verified ? 'success' : 'warning'} size="sm">
+                        {(user as any).email_verified ? 'Verified' : 'Unverified'}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3">
                       <Badge variant={user.is_active ? 'success' : 'danger'} size="sm">
                         {user.is_active ? 'Active' : 'Suspended'}
                       </Badge>
@@ -328,6 +352,16 @@ export default function AdminUsers() {
                         >
                           <DollarSign className="w-3.5 h-3.5" />
                         </button>
+                        {!(user as any).email_verified && (
+                          <button
+                            onClick={() => resendVerification(user)}
+                            disabled={changing === user.id}
+                            className="p-1.5 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors disabled:opacity-50"
+                            title="Resend Verification Email"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => toggleActive(user)}
                           disabled={changing === user.id}

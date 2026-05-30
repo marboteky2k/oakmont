@@ -1,73 +1,72 @@
-// ── verify-email-token Edge Function ──────────────────────────────────────
-// Validates the token from the verification link clicked in the email.
-// Does NOT require authentication — the user may click from any device.
-//
-// Request body: { token: string }
-// Returns: { success: true, email: string } | { error: string }
-// ──────────────────────────────────────────────────────────────────────────
+// verify-email-token — PUBLIC (no auth required)
+// User clicks link from their email: /verify-email?token=xxx
+// Validates the token, marks user as verified, sends welcome email.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendEmail, corsHeaders, jsonResponse } from '../_shared/resend.ts'
+import { welcomeEmail } from '../_shared/templates.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_SERVICE  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SITE_URL          = Deno.env.get('SITE_URL') ?? 'https://oakmontridgecapital.com'
 
-Deno.serve(async (req: Request) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const { token } = await req.json()
-    if (!token) throw new Error('Token is required')
+    if (!token) return jsonResponse({ error: 'token is required' }, 400)
 
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-    )
+    const db = createClient(SUPABASE_URL, SUPABASE_SERVICE)
 
-    // ── Look up the token ────────────────────────────────────────
-    const { data: record, error: lookupErr } = await supabaseAdmin
+    // Find valid, unused, non-expired token
+    const { data: record, error } = await db
       .from('email_verifications')
-      .select('id, user_id, email, expires_at, used_at')
+      .select('id, user_id, email, used_at, expires_at')
       .eq('token', token)
-      .maybeSingle()
+      .single()
 
-    if (lookupErr) throw lookupErr
-
-    if (!record) {
-      throw new Error('This verification link is invalid or has already been used.')
-    }
-
-    if (record.used_at) {
-      throw new Error('This verification link has already been used. You can sign in now.')
-    }
-
+    if (error || !record) return jsonResponse({ error: 'Invalid or expired verification link.' }, 400)
+    if (record.used_at)   return jsonResponse({ error: 'This verification link has already been used.' }, 400)
     if (new Date(record.expires_at) < new Date()) {
-      throw new Error('This verification link has expired. Please request a new one.')
+      return jsonResponse({ error: 'This verification link has expired. Please request a new one.' }, 400)
     }
 
-    // ── Mark email as verified on the user profile ───────────────
-    const { error: updateErr } = await supabaseAdmin
+    // Get user details
+    const { data: user } = await db
+      .from('users')
+      .select('full_name, email_verified')
+      .eq('id', record.user_id)
+      .single()
+
+    if (user?.email_verified) {
+      // Already verified by a different path — idempotent success
+      return jsonResponse({ success: true, email: record.email })
+    }
+
+    // Mark user as verified
+    await db
       .from('users')
       .update({ email_verified: true })
       .eq('id', record.user_id)
 
-    if (updateErr) throw updateErr
-
-    // ── Consume the token (single-use) ───────────────────────────
-    await supabaseAdmin
+    // Consume the token
+    await db
       .from('email_verifications')
       .update({ used_at: new Date().toISOString() })
       .eq('id', record.id)
 
-    return new Response(
-      JSON.stringify({ success: true, email: record.email }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    // Send welcome email (fire-and-forget — don't fail the verification if this errors)
+    const name = user?.full_name?.split(' ')[0] ?? 'Investor'
+    sendEmail(
+      record.email,
+      `Welcome to Oakmont Ridge Capital, ${name}!`,
+      welcomeEmail({ name, dashboardLink: `${SITE_URL}/dashboard` }),
+    ).catch(console.error)
+
+    return jsonResponse({ success: true, email: record.email })
   } catch (err: any) {
-    return new Response(
-      JSON.stringify({ error: err.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    console.error('verify-email-token error:', err)
+    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
   }
 })

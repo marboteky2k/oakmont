@@ -74,6 +74,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
     ])
     if (error) throw error
+
+    // Check email_verified — block login until verified (admins are exempt)
+    const { data: { user: authUser } } = await supabase.auth.getUser()
+    if (authUser) {
+      const { data: prof } = await supabase
+        .from('users')
+        .select('email_verified, role')
+        .eq('id', authUser.id)
+        .single()
+
+      const isAdmin = prof?.role === 'super_admin' || prof?.role === 'admin'
+      if (prof && !prof.email_verified && !isAdmin) {
+        await supabase.auth.signOut()
+        const err = new Error('Please verify your email address before signing in. Check your inbox for the verification link.')
+        ;(err as any).code = 'EMAIL_NOT_VERIFIED'
+        ;(err as any).email = email
+        throw err
+      }
+    }
+
     const needsMfa = aal?.nextLevel === 'aal2' && aal?.currentLevel !== 'aal2'
     return { needsMfa }
   }
@@ -96,19 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
     })
 
-    if (error) {
-      // Supabase may throw an email-delivery error even though the auth.users
-      // row was successfully created (SMTP not configured / free-tier rate
-      // limit). Our DB trigger (015) auto-confirms the account, so the user
-      // can sign in immediately — swallow this specific error class.
-      const isEmailDeliveryError =
-        error.message?.toLowerCase().includes('sending') ||
-        error.message?.toLowerCase().includes('confirmation email') ||
-        error.message?.toLowerCase().includes('email') ||
-        error.status === 500
-      if (!isEmailDeliveryError) throw error
-      // else: account was created & auto-confirmed — proceed silently
-    }
+    if (error) throw error
   }
 
   const signInWithGoogle = async () => {

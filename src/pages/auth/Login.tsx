@@ -4,10 +4,11 @@ import { motion } from 'framer-motion'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Mail, Lock, Eye, EyeOff, AlertTriangle, Clock, TrendingUp } from 'lucide-react'
+import { Mail, Lock, Eye, EyeOff, AlertTriangle, Clock, TrendingUp, MailCheck, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { useLoginRateLimit } from '@/hooks/useLoginRateLimit'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import toast from 'react-hot-toast'
@@ -57,6 +58,8 @@ export default function Login() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [lockTimer, setLockTimer] = useState(0)
   const [testimonialIdx] = useState(() => Math.floor(Math.random() * TESTIMONIALS.length))
+  const [unverifiedEmail, setUnverifiedEmail] = useState('')
+  const [resendingVerification, setResendingVerification] = useState(false)
 
   const {
     isLocked, remainingSeconds, remainingAttempts,
@@ -80,11 +83,33 @@ export default function Login() {
     defaultValues: { email: prefillEmail },
   })
 
+  const resendVerification = async () => {
+    if (!unverifiedEmail) return
+    setResendingVerification(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('send-verification', {
+        body: { email: unverifiedEmail },
+      })
+      if (error || data?.error) throw new Error(data?.error ?? error?.message)
+      if (data?.already_verified) {
+        toast.success('Your email is already verified. Please try signing in.')
+        setUnverifiedEmail('')
+        return
+      }
+      toast.success('Verification email resent! Check your inbox.')
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to resend verification email')
+    } finally {
+      setResendingVerification(false)
+    }
+  }
+
   const onSubmit = async (data: FormData) => {
     if (checkLocked()) {
       toast.error('Too many failed attempts. Please wait before trying again.')
       return
     }
+    setUnverifiedEmail('')
     setLoading(true)
     try {
       await signIn(data.email, data.password)
@@ -92,6 +117,11 @@ export default function Login() {
       toast.success('Welcome back!')
       navigate(from, { replace: true })
     } catch (err: any) {
+      if ((err as any).code === 'EMAIL_NOT_VERIFIED') {
+        setUnverifiedEmail((err as any).email ?? data.email)
+        // Don't record as a failure — not a wrong password
+        return
+      }
       const result = recordFailure()
       if (result.locked) {
         toast.error('Too many failed attempts. Account locked for 15 minutes.')
@@ -205,6 +235,33 @@ export default function Login() {
           <p className="text-slate-500 text-sm mt-1 mb-8">
             Sign in to access your dashboard and portfolio.
           </p>
+
+          {/* Email not verified banner */}
+          {unverifiedEmail && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex flex-col gap-3 bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4"
+            >
+              <div className="flex items-start gap-3">
+                <MailCheck className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-blue-800">Email not verified</p>
+                  <p className="text-xs text-blue-600 mt-0.5">
+                    Check your inbox for the verification link sent to <strong>{unverifiedEmail}</strong>.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={resendVerification}
+                disabled={resendingVerification}
+                className="flex items-center justify-center gap-2 text-xs font-semibold text-blue-700 border border-blue-300 rounded-lg py-2 hover:bg-blue-100 transition-colors disabled:opacity-60"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${resendingVerification ? 'animate-spin' : ''}`} />
+                {resendingVerification ? 'Sending…' : 'Resend verification email'}
+              </button>
+            </motion.div>
+          )}
 
           {/* Locked state */}
           {isLocked && (

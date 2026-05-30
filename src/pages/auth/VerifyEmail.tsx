@@ -3,12 +3,11 @@ import { useLocation, useNavigate, useSearchParams, Link } from 'react-router-do
 import { motion } from 'framer-motion'
 import { MailCheck, RefreshCw, CheckCircle, XCircle, TrendingUp, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import toast from 'react-hot-toast'
 
-// ── Token-verification mode ───────────────────────────────────────────────
-// Shown when the user clicks the link in their email (?token=xxx).
+// ── Token-verification mode ──────────────────────────────────────────────────
+// Shown when the user clicks the link in their email (?token=xxx)
 function TokenVerifier({ token }: { token: string }) {
   const navigate = useNavigate()
   const [status, setStatus] = useState<'verifying' | 'success' | 'error'>('verifying')
@@ -27,7 +26,7 @@ function TokenVerifier({ token }: { token: string }) {
         setEmail(data.email ?? '')
         setStatus('success')
         toast.success('Email verified! Welcome to Oakmont Ridge Capital.')
-        // Redirect to KYC after 2.5 seconds
+        // Redirect to KYC after 2.5 s
         setTimeout(() => {
           if (!cancelled) navigate('/kyc', { replace: true })
         }, 2500)
@@ -79,7 +78,7 @@ function TokenVerifier({ token }: { token: string }) {
             <p className="font-semibold text-slate-900 text-lg">Verification failed</p>
             <p className="text-sm text-slate-500 mt-1">{errorMsg}</p>
           </div>
-          <Link to="/verify-email">
+          <Link to="/login">
             <Button variant="outline" className="w-full">Request a new verification link</Button>
           </Link>
           <Link to="/login" className="block text-sm text-[#1E40AF] hover:underline font-medium">
@@ -91,26 +90,23 @@ function TokenVerifier({ token }: { token: string }) {
   )
 }
 
-// ── Check-inbox mode ──────────────────────────────────────────────────────
-// Shown right after registration, no token in URL.
+// ── Check-inbox mode ─────────────────────────────────────────────────────────
+// Shown after registration with no token in URL
 function CheckInbox({ email }: { email: string }) {
-  const { profile } = useAuth()
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
   const [cooldown, setCooldown] = useState(0)
 
   const resendEmail = async () => {
-    if (cooldown > 0) return
-    if (!profile) {
-      toast.error('Please sign in to resend the verification email.')
-      return
-    }
+    if (cooldown > 0 || !email) return
     setResending(true)
     try {
-      const { data, error } = await supabase.functions.invoke('send-verification')
+      const { data, error } = await supabase.functions.invoke('send-verification', {
+        body: { email },
+      })
       if (error || data?.error) throw new Error(data?.error ?? error?.message ?? 'Failed to resend')
       if (data?.already_verified) {
-        toast.success('Your email is already verified!')
+        toast.success('Your email is already verified! Please sign in.')
         return
       }
       setResent(true)
@@ -142,7 +138,7 @@ function CheckInbox({ email }: { email: string }) {
           </p>
         )}
         <p className="text-sm text-slate-500 mt-1.5">
-          Click the link in the email to activate your account and proceed to KYC.
+          Click the link to verify your email and activate your account.
         </p>
       </div>
 
@@ -152,7 +148,7 @@ function CheckInbox({ email }: { email: string }) {
           'Check your spam or junk folder',
           'The link expires after 24 hours',
           'Add noreply@oakmontridgecapital.com to your contacts',
-          'Contact support if you still don\'t receive it',
+          'You must verify your email before you can sign in',
         ].map(tip => (
           <p key={tip} className="text-xs text-amber-700 flex items-start gap-1.5">
             <span className="text-amber-500 font-bold mt-0.5">·</span> {tip}
@@ -160,30 +156,27 @@ function CheckInbox({ email }: { email: string }) {
         ))}
       </div>
 
-      <Button
-        variant="outline"
-        onClick={resendEmail}
-        loading={resending}
-        disabled={cooldown > 0}
-        className="w-full"
-      >
-        <RefreshCw className="w-4 h-4" />
-        {cooldown > 0 ? `Resend in ${cooldown}s` : resent ? 'Resend again' : 'Resend verification email'}
-      </Button>
+      {email && (
+        <Button
+          variant="outline"
+          onClick={resendEmail}
+          loading={resending}
+          disabled={cooldown > 0}
+          className="w-full"
+        >
+          <RefreshCw className="w-4 h-4" />
+          {cooldown > 0 ? `Resend in ${cooldown}s` : resent ? 'Resend again' : 'Resend verification email'}
+        </Button>
+      )}
 
-      <div className="text-center space-y-2">
-        <Link to="/dashboard" className="block text-sm text-slate-500 hover:text-slate-700 transition-colors">
-          Continue to dashboard →
-        </Link>
-        <Link to="/login" className="block text-sm text-[#1E40AF] font-medium hover:underline">
-          Back to Sign In
-        </Link>
-      </div>
+      <Link to="/login" className="block text-center text-sm text-[#1E40AF] font-medium hover:underline">
+        Back to Sign In
+      </Link>
     </div>
   )
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function VerifyEmail() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
@@ -208,7 +201,7 @@ export default function VerifyEmail() {
           <p className="text-blue-200 text-sm mt-1">Oakmont Ridge Capital</p>
         </div>
 
-        {/* Content card */}
+        {/* Content */}
         <div className="px-8 py-8 -mt-4">
           <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6">
             {token

@@ -333,6 +333,39 @@ export default function Trading() {
       : currentPrice * (1 + 1 / leverage)
     : null
 
+  // ── Advanced analytics ────────────────────────────────────────
+  const totalExposure = trades.reduce((s, t) => s + t.amount_usdt * t.leverage, 0)
+  const accountEquity = walletBalance + Math.max(0, totalPnL)
+  const exposurePct   = accountEquity > 0 ? (totalExposure / accountEquity) * 100 : 0
+
+  const closedPnLApprox = 0 // would need TradeHistory query; placeholder
+  const winningTrades   = trades.filter(t => {
+    const cp = tickers.find(tk => tk.symbol === t.symbol)?.price ?? t.entry_price
+    return calcPnl(t, cp).pnl > 0
+  }).length
+  const winRate = trades.length > 0 ? (winningTrades / trades.length) * 100 : 0
+
+  const maxDrawdown = trades.reduce((worst, t) => {
+    const cp  = tickers.find(tk => tk.symbol === t.symbol)?.price ?? t.entry_price
+    const pct = calcPnl(t, cp).pnlPct
+    return pct < worst ? pct : worst
+  }, 0)
+
+  // Daily / weekly / monthly / annual (from open trades only — closed needs DB)
+  const now = Date.now()
+  const DAY  = 86_400_000
+  const dailyPnL   = trades.filter(t => Date.now() - new Date(t.opened_at).getTime() < DAY)
+    .reduce((s, t) => { const cp = tickers.find(tk => tk.symbol === t.symbol)?.price ?? t.entry_price; return s + calcPnl(t, cp).pnl }, 0)
+  const weeklyPnL  = trades.filter(t => now - new Date(t.opened_at).getTime() < 7  * DAY)
+    .reduce((s, t) => { const cp = tickers.find(tk => tk.symbol === t.symbol)?.price ?? t.entry_price; return s + calcPnl(t, cp).pnl }, 0)
+  const monthlyPnL = trades.filter(t => now - new Date(t.opened_at).getTime() < 30 * DAY)
+    .reduce((s, t) => { const cp = tickers.find(tk => tk.symbol === t.symbol)?.price ?? t.entry_price; return s + calcPnl(t, cp).pnl }, 0)
+
+  const riskScore = Math.min(100, Math.round(exposurePct * 0.8 + Math.abs(maxDrawdown) * 0.4 + (trades.length > 5 ? 10 : 0)))
+  const riskLabel = riskScore < 30 ? { label: 'Low', color: 'text-green-600', bg: 'bg-green-100' }
+    : riskScore < 65 ? { label: 'Medium', color: 'text-amber-600', bg: 'bg-amber-100' }
+    : { label: 'High', color: 'text-red-600', bg: 'bg-red-100' }
+
   return (
     <div className="flex flex-col gap-0 h-full -m-6">
 
@@ -653,6 +686,80 @@ export default function Trading() {
                 <p className="text-xs text-red-500 text-center">Insufficient balance</p>
               )}
             </div>
+
+            {/* ── Analytics Dashboard ── */}
+            {trades.length > 0 && (
+              <div className="border-t border-slate-100 px-3 py-3 space-y-3">
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5" /> Live Analytics
+                </p>
+
+                {/* Live Monitoring */}
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    { label: 'Floating P/L', value: `${totalPnL >= 0 ? '+' : ''}${formatCurrency(totalPnL)}`, color: totalPnL >= 0 ? 'text-green-600' : 'text-red-500' },
+                    { label: 'Account Equity', value: formatCurrency(accountEquity), color: 'text-slate-800' },
+                    { label: 'Open Positions', value: trades.length.toString(), color: 'text-[#1E40AF]' },
+                    { label: 'Total Exposure', value: formatCurrency(totalExposure), color: 'text-slate-800' },
+                  ].map(item => (
+                    <div key={item.label} className="bg-slate-50 rounded-xl p-2.5">
+                      <p className="text-xs text-slate-400 mb-0.5">{item.label}</p>
+                      <p className={`text-sm font-bold ${item.color}`}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Risk Analytics */}
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs font-semibold text-slate-600">Risk Analytics</p>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${riskLabel.bg} ${riskLabel.color}`}>
+                      {riskLabel.label} Risk
+                    </span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {[
+                      { label: 'Risk Score', value: `${riskScore}/100` },
+                      { label: 'Max Drawdown', value: `${maxDrawdown.toFixed(2)}%`, color: maxDrawdown < 0 ? 'text-red-500' : 'text-green-600' },
+                      { label: 'Win Rate', value: `${winRate.toFixed(1)}%`, color: winRate >= 50 ? 'text-green-600' : 'text-amber-600' },
+                      { label: 'Exposure', value: `${exposurePct.toFixed(1)}%` },
+                    ].map(r => (
+                      <div key={r.label} className="flex justify-between text-xs">
+                        <span className="text-slate-400">{r.label}</span>
+                        <span className={`font-semibold ${r.color ?? 'text-slate-700'}`}>{r.value}</span>
+                      </div>
+                    ))}
+                    {/* Risk score bar */}
+                    <div className="h-1.5 rounded-full bg-slate-200 mt-1 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${riskScore < 30 ? 'bg-green-500' : riskScore < 65 ? 'bg-amber-500' : 'bg-red-500'}`}
+                        style={{ width: `${riskScore}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Performance Analytics */}
+                <div className="bg-slate-50 rounded-xl p-2.5">
+                  <p className="text-xs font-semibold text-slate-600 mb-2">Performance (Open Trades)</p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { label: 'Today', value: dailyPnL },
+                      { label: 'This Week', value: weeklyPnL },
+                      { label: 'This Month', value: monthlyPnL },
+                      { label: 'Total Float', value: totalPnL },
+                    ].map(p => (
+                      <div key={p.label} className="flex flex-col">
+                        <span className="text-xs text-slate-400">{p.label}</span>
+                        <span className={`text-xs font-bold ${p.value >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {p.value >= 0 ? '+' : ''}{formatCurrency(p.value)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Open positions */}
             <div className="border-t border-slate-100">

@@ -40,6 +40,10 @@ export default function AdminKYC() {
         body: { kycId: doc.id, userId: doc.user_id, action: 'approve' },
       })
       if (error) throw error
+      // Send KYC approval email via Resend
+      supabase.functions.invoke('send-kyc-notification', {
+        body: { user_id: doc.user_id, status: 'approved' },
+      }).catch(console.error)
       toast.success(`KYC approved for ${doc.users?.full_name}`)
       setViewing(null)
       fetchDocs()
@@ -58,6 +62,10 @@ export default function AdminKYC() {
         body: { kycId: doc.id, userId: doc.user_id, action: 'reject', reason: rejectionReason },
       })
       if (error) throw error
+      // Send KYC rejection email via Resend
+      supabase.functions.invoke('send-kyc-notification', {
+        body: { user_id: doc.user_id, status: 'rejected', rejection_reason: rejectionReason },
+      }).catch(console.error)
       toast.success(`KYC rejected for ${doc.users?.full_name}`)
       setViewing(null)
       setRejectionReason('')

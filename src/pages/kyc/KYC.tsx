@@ -68,17 +68,20 @@ export default function KYC() {
   const [step, setStep] = useState(1)
 
   // Step 1 — personal info
-  const [firstName, setFirstName] = useState('')
-  const [lastName, setLastName]  = useState('')
-  const [dob, setDob]            = useState('')
+  const [firstName, setFirstName]     = useState('')
+  const [lastName, setLastName]       = useState('')
+  const [dob, setDob]                 = useState('')
   const [nationality, setNationality] = useState('')
+  const [phone, setPhone]             = useState('')
+  const [occupation, setOccupation]   = useState('')
   const [streetAddress, setStreetAddress] = useState('')
-  const [city, setCity]          = useState('')
-  const [postalCode, setPostalCode] = useState('')
-  const [country, setCountry]    = useState('')
+  const [city, setCity]               = useState('')
+  const [postalCode, setPostalCode]   = useState('')
+  const [country, setCountry]         = useState('')
 
   // Step 2 — documents
   const [docType, setDocType] = useState('passport')
+  const [idNumber, setIdNumber] = useState('')
   const [front, setFront]     = useState<File | null>(null)
   const [back, setBack]       = useState<File | null>(null)
   const [selfie, setSelfie]   = useState<File | null>(null)
@@ -109,11 +112,13 @@ export default function KYC() {
     if (!firstName || !lastName) { toast.error('Enter your full name'); return false }
     if (!dob) { toast.error('Enter your date of birth'); return false }
     if (!nationality) { toast.error('Enter your nationality'); return false }
+    if (!phone) { toast.error('Enter your phone number'); return false }
     if (!streetAddress || !city || !country) { toast.error('Complete your address'); return false }
     return true
   }
 
   const validateStep2 = () => {
+    if (!idNumber) { toast.error('Enter your ID number'); return false }
     if (!front) { toast.error('Upload the front of your document'); return false }
     if (!selfie) { toast.error('Upload a selfie with your document'); return false }
     return true
@@ -286,6 +291,10 @@ export default function KYC() {
                   <Input label="Date of Birth" type="date" value={dob} onChange={e => setDob(e.target.value)} />
                   <Input label="Nationality" value={nationality} onChange={e => setNationality(e.target.value)} placeholder="e.g. American" />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Input label="Phone Number" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="+1 555 000 0000" />
+                  <Input label="Occupation" value={occupation} onChange={e => setOccupation(e.target.value)} placeholder="e.g. Engineer" />
+                </div>
                 <Input label="Street Address" value={streetAddress} onChange={e => setStreetAddress(e.target.value)} placeholder="123 Main Street, Apt 4B" />
                 <div className="grid grid-cols-2 gap-3">
                   <Input label="City" value={city} onChange={e => setCity(e.target.value)} placeholder="New York" />
@@ -315,6 +324,12 @@ export default function KYC() {
                   ]}
                   value={docType}
                   onChange={e => setDocType(e.target.value)}
+                />
+                <Input
+                  label="ID / Document Number"
+                  value={idNumber}
+                  onChange={e => setIdNumber(e.target.value)}
+                  placeholder="e.g. AB1234567"
                 />
                 <UploadBox label="Front of Document" required={true}  file={front}  onFile={setFront} />
                 <UploadBox label="Back of Document"  required={false} file={back}   onFile={setBack} />

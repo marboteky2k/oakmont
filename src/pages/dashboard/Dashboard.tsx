@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   TrendingUp, TrendingDown, Wallet, BarChart3, Users,
   ArrowUpRight, ArrowDownRight, Plus, Eye, Activity, Gift,
-  Shield, AlertTriangle, Clock, Mail,
+  Shield, AlertTriangle, Clock, Mail, RefreshCw,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { supabase } from '@/lib/supabase'
@@ -42,8 +42,10 @@ export default function Dashboard() {
   const [subscriptions, setSubscriptions] = useState<CopySubscription[]>([])
   const [investments, setInvestments] = useState<Investment[]>([])
   const [transactions, setTransactions] = useState<Transaction[]>([])
-  const [kycDoc, setKycDoc] = useState<KycDocument | null | undefined>(undefined) // undefined = loading
+  const [kycDoc, setKycDoc] = useState<KycDocument | null | undefined>(undefined)
   const [loading, setLoading] = useState(true)
+  const [resendingVerify, setResendingVerify] = useState(false)
+  const [resentVerify, setResentVerify] = useState(false)
 
   useEffect(() => {
     if (!profile) return
@@ -131,8 +133,27 @@ export default function Dashboard() {
       btnLabel: 'Verify Now →',
     }
   })()
-  // Extract icon for JSX — must be PascalCase for React to treat as component
   const KycBannerIcon = kycBanner?.icon ?? null
+
+  const resendVerificationEmail = async () => {
+    if (!profile?.email || resendingVerify) return
+    setResendingVerify(true)
+    try {
+      const { data, error } = await supabase.functions.invoke('send-verification', {
+        body: { email: profile.email },
+      })
+      if (error || data?.error) throw new Error(data?.error ?? error?.message)
+      if (data?.already_verified) {
+        setResentVerify(false)
+        return
+      }
+      setResentVerify(true)
+    } catch {
+      // silently fail — user can go to /verify-email
+    } finally {
+      setResendingVerify(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -141,26 +162,29 @@ export default function Dashboard() {
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
           className="rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-blue-50 border border-blue-200"
         >
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 bg-blue-100">
+          <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
             <Mail className="w-5 h-5 text-blue-600" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-blue-800">Verify your email address</p>
             <p className="text-xs mt-0.5 leading-relaxed text-blue-600">
-              A verification link was sent to <strong>{profile.email}</strong>. Click it to secure your account and unlock all features.
+              {resentVerify
+                ? `Verification email resent to ${profile.email}. Check your inbox.`
+                : `A verification link was sent to ${profile.email}. Click it to unlock all features.`}
             </p>
           </div>
-          <Link to="/verify-email" className="flex-shrink-0">
-            <button className="px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap">
-              Resend Link
-            </button>
-          </Link>
+          <button
+            onClick={resendVerificationEmail}
+            disabled={resendingVerify || resentVerify}
+            className="flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-colors bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${resendingVerify ? 'animate-spin' : ''}`} />
+            {resentVerify ? 'Sent!' : resendingVerify ? 'Sending…' : 'Resend Link'}
+          </button>
         </motion.div>
       )}
-
       {/* ── KYC verification banner ── */}
       {kycBanner && KycBannerIcon && (
         <motion.div
