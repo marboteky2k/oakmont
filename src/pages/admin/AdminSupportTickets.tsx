@@ -236,7 +236,7 @@ export default function AdminSupportTickets() {
       {/* Ticket detail modal */}
       {viewing && (
         <Modal
-          isOpen={!!viewing}
+          open={!!viewing}
           onClose={() => setViewing(null)}
           title={`Ticket ${viewing.ticket_number}`}
           size="lg"

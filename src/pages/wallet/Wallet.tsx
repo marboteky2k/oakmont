@@ -294,7 +294,7 @@ export default function WalletPage() {
       setWithdrawVerified(true)
       toast.success('Withdrawal confirmed! It will be processed within 24 hours.')
       fetchWallet(profile!.id)
-      fetchTx(profile!.id)
+      fetchTxs(profile!.id)
     } catch (err: any) {
       setCodeError(err.message ?? 'Invalid or expired code')
     } finally {

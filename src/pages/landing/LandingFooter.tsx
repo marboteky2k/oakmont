@@ -9,7 +9,9 @@ function scrollTo(id: string) {
   document.querySelector(id)?.scrollIntoView({ behavior: 'smooth' })
 }
 
-const footerLinks = {
+type FooterLink = { label: string; to: string; href?: undefined } | { label: string; href: string; to?: undefined }
+
+const footerLinks: Record<string, FooterLink[]> = {
   Platform: [
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Copy Trading', to: '/copy-trading' },
