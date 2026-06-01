@@ -1,27 +1,35 @@
-import { Link } from 'react-router-dom'
-import { TrendingUp, ArrowLeft } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { TrendingUp } from 'lucide-react'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 interface PublicNavProps {
-  /** Show a "← Back" link instead of / alongside the logo */
+  /** @deprecated – ignored; nav now shows links instead of a back button */
   showBack?: boolean
   backLabel?: string
   backTo?: string
 }
 
+const NAV_LINKS = [
+  { label: 'About', to: '/about' },
+  { label: 'Plans', to: '/plans' },
+  { label: 'FAQ', to: '/faq' },
+  { label: 'Affiliate', to: '/affiliate' },
+  { label: 'Contact', to: '/contact' },
+]
+
 /**
- * Minimal nav bar used on all standalone public pages
- * (Privacy, Terms, Blog, Careers, Contact, etc.)
- * Logo always links to homepage.
+ * Nav bar used on all standalone public pages.
+ * Logo links to homepage; right side shows page links + login/register CTAs.
  */
-export function PublicNav({ showBack = true, backLabel = 'Home', backTo = '/' }: PublicNavProps) {
+export function PublicNav(_props: PublicNavProps) {
   const { settings } = useSiteSettings()
   const { brand } = settings
+  const location = useLocation()
 
   return (
     <nav className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-14 gap-4">
           {/* Logo → Homepage */}
           <Link to="/" className="flex items-center gap-2.5 group flex-shrink-0">
             <div
@@ -39,7 +47,7 @@ export function PublicNav({ showBack = true, backLabel = 'Home', backTo = '/' }:
                 <TrendingUp className="w-4 h-4 text-white" />
               )}
             </div>
-            <span className="font-bold text-slate-900 text-sm group-hover:opacity-80 transition-opacity">
+            <span className="font-bold text-slate-900 text-sm group-hover:opacity-80 transition-opacity hidden sm:block">
               {brand.company_name.split(' ').slice(0, -1).join(' ')}{' '}
               <span style={{ color: brand.primary_color || '#1E40AF' }}>
                 {brand.company_name.split(' ').slice(-1)[0]}
@@ -47,16 +55,39 @@ export function PublicNav({ showBack = true, backLabel = 'Home', backTo = '/' }:
             </span>
           </Link>
 
-          {/* Back link */}
-          {showBack && (
+          {/* Centre nav links – hidden on small screens */}
+          <div className="hidden lg:flex items-center gap-1">
+            {NAV_LINKS.map(link => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  location.pathname === link.to
+                    ? 'text-[#1E40AF] bg-blue-50'
+                    : 'text-slate-600 hover:text-[#1E40AF] hover:bg-slate-50'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+
+          {/* Right CTA */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <Link
-              to={backTo}
-              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-[#1E40AF] transition-colors font-medium"
+              to="/login"
+              className="text-sm font-medium text-slate-600 hover:text-[#1E40AF] transition-colors px-3 py-1.5"
             >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              {backLabel}
+              Sign in
             </Link>
-          )}
+            <Link
+              to="/register"
+              className="text-sm font-bold text-white px-4 py-1.5 rounded-xl transition-colors"
+              style={{ backgroundColor: brand.primary_color || '#1E40AF' }}
+            >
+              Get Started
+            </Link>
+          </div>
         </div>
       </div>
     </nav>

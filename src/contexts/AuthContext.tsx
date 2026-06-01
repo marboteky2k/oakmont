@@ -99,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, fullName: string, extra?: SignUpExtra) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -117,6 +117,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     if (error) throw error
+
+    // ── Frontend fallback: ensure public.users profile exists ────────
+    // The DB trigger should handle this, but if it ever fails silently
+    // (e.g. migration not yet applied) we create the row ourselves.
+    // data.user is available immediately after signUp even before email verification.
+    if (data.user) {
+      try {
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', data.user.id)
+          .single()
+
+        if (!existing) {
+          // Trigger missed — create profile manually
+          await supabase.from('users').upsert({
+            id:                    data.user.id,
+            email:                 email.toLowerCase().trim(),
+            full_name:             fullName,
+            email_verified:        false,
+            phone:                 extra?.phone ?? null,
+            country:               extra?.country ?? null,
+            investment_experience: extra?.investmentExperience ?? null,
+            investment_goals:      extra?.investmentGoals ?? null,
+            asset_interests:       extra?.assetInterests ?? null,
+          }, { onConflict: 'id' })
+
+          // Ensure wallet exists too
+          await supabase
+            .from('wallets')
+            .upsert({ user_id: data.user.id }, { onConflict: 'user_id' })
+        }
+      } catch {
+        // Silently ignore — the trigger or a later login will handle it
+      }
+    }
   }
 
   const signInWithGoogle = async () => {

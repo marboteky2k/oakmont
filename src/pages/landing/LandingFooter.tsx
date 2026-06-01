@@ -13,27 +13,22 @@ const footerLinks = {
   Platform: [
     { label: 'Dashboard', to: '/dashboard' },
     { label: 'Copy Trading', to: '/copy-trading' },
-    { label: 'Investment Plans', to: '/investments' },
+    { label: 'Investment Plans', to: '/plans' },
     { label: 'Wallet', to: '/wallet' },
-    { label: 'Transactions', to: '/transactions' },
-  ],
-  Trading: [
-    { label: 'Top Traders', href: '#traders' },
-    { label: 'Market Signals', href: '#markets' },
-    { label: 'Blog', to: '/blog' },
-    { label: 'Careers', to: '/careers' },
+    { label: 'Affiliate Programme', to: '/affiliate' },
   ],
   Company: [
-    { label: 'About Us', href: '#about' },
-    { label: 'Security', href: '#security' },
+    { label: 'About Us', to: '/about' },
+    { label: 'How It Works', href: '#about' },
     { label: 'Blog', to: '/blog' },
     { label: 'Careers', to: '/careers' },
   ],
   Support: [
-    { label: 'Help Center', href: '#faq' },
+    { label: 'FAQ', to: '/faq' },
     { label: 'Contact Us', to: '/contact' },
     { label: 'Privacy Policy', to: '/privacy' },
     { label: 'Terms of Service', to: '/terms' },
+    { label: 'Cookie Policy', to: '/cookie-policy' },
   ],
 }
 
@@ -56,7 +51,7 @@ export function LandingFooter() {
     <footer className="bg-slate-950 text-slate-400">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 pb-8">
 
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 pb-12 border-b border-slate-800">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-10 pb-12 border-b border-slate-800">
 
           {/* Brand + social + newsletter */}
           <div className="lg:col-span-2">
@@ -154,33 +149,12 @@ export function LandingFooter() {
             <ul className="space-y-3">
               {footerLinks.Platform.map(link => (
                 <li key={link.label}>
-                  <Link
-                    to={link.to}
-                    className="text-sm hover:text-white transition-colors hover:translate-x-1 inline-block transform duration-200"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Trading links */}
-          <div>
-            <h4 className="text-white text-sm font-semibold mb-5">Trading</h4>
-            <ul className="space-y-3">
-              {footerLinks.Trading.map(link => (
-                <li key={link.label}>
                   {'to' in link ? (
                     <Link to={link.to!} className="text-sm hover:text-white transition-colors hover:translate-x-1 inline-block transform duration-200">
                       {link.label}
                     </Link>
                   ) : (
-                    <a
-                      href={link.href}
-                      className="text-sm hover:text-white transition-colors hover:translate-x-1 inline-block transform duration-200"
-                      onClick={link.href!.startsWith('#') ? e => { e.preventDefault(); scrollTo(link.href!) } : undefined}
-                    >
+                    <a href={link.href} className="text-sm hover:text-white transition-colors hover:translate-x-1 inline-block transform duration-200" onClick={link.href!.startsWith('#') ? e => { e.preventDefault(); scrollTo(link.href!) } : undefined}>
                       {link.label}
                     </a>
                   )}

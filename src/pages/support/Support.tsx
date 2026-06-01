@@ -2,11 +2,12 @@
 import { motion } from 'framer-motion'
 import {
   MessageSquare, Mail, Clock, CheckCircle, ExternalLink,
-  ChevronDown, Headphones, Shield, BookOpen
+  ChevronDown, Headphones, Shield, BookOpen, Hash,
 } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 
 const quickLinks = [
@@ -30,17 +31,31 @@ export default function Support() {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [ticketNumber, setTicketNumber] = useState('')
   const [openFaq, setOpenFaq] = useState<number | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!name || !email || !message) { toast.error('Fill in all required fields'); return }
+    if (!name.trim() || !email.trim() || !message.trim()) {
+      toast.error('Fill in all required fields')
+      return
+    }
     setSending(true)
-    // Simulate API call — in production wire to Supabase Edge Function
-    await new Promise(r => setTimeout(r, 1400))
-    setSending(false)
-    setSent(true)
-    toast.success('Support ticket submitted! We\'ll respond within 24 hours.')
+    try {
+      const { data, error } = await supabase.functions.invoke('send-support-ticket', {
+        body: { name: name.trim(), email: email.trim(), subject, message: message.trim(), source: 'support' },
+      })
+      if (error || !data?.success) {
+        throw new Error(data?.error ?? error?.message ?? 'Submission failed')
+      }
+      setTicketNumber(data.ticket_number ?? '')
+      setSent(true)
+      toast.success('Support ticket submitted!')
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to submit ticket. Please try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -99,19 +114,31 @@ export default function Support() {
         </div>
 
         {sent ? (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-10">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8">
             <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-8 h-8 text-green-500" />
             </div>
-            <p className="text-xl font-bold text-slate-900 mb-2">Ticket Submitted!</p>
+            <p className="text-xl font-bold text-slate-900 mb-1">Ticket Submitted!</p>
             <p className="text-slate-500 text-sm mb-5">
-              Our support team will respond to <strong>{email}</strong> within 24 hours.
+              We'll respond to <strong>{email}</strong> within 24 hours.
             </p>
-            <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
+
+            {ticketNumber && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl py-4 px-6 mb-5 inline-block">
+                <div className="flex items-center gap-2 text-blue-600 justify-center mb-1">
+                  <Hash className="w-4 h-4" />
+                  <span className="text-xs font-semibold uppercase tracking-wide">Your Ticket Number</span>
+                </div>
+                <p className="text-2xl font-black text-[#1E40AF] tracking-widest font-mono">{ticketNumber}</p>
+                <p className="text-xs text-blue-400 mt-1">Reference this number when following up</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 mb-4">
               <Clock className="w-4 h-4" />
               Typical response: 2–8 hours on business days
             </div>
-            <Button className="mt-6" onClick={() => setSent(false)} variant="outline" size="sm">Submit Another Ticket</Button>
+            <Button className="mt-2" onClick={() => { setSent(false); setTicketNumber('') }} variant="outline" size="sm">Submit Another Ticket</Button>
           </motion.div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">

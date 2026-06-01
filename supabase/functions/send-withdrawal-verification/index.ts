@@ -1,6 +1,7 @@
 // send-withdrawal-verification — REQUIRES AUTH (user JWT)
-// Creates a pending withdrawal transaction and sends a confirmation link via Resend.
-// The withdrawal stays in 'pending_verification' until the user clicks the link.
+// Creates a pending withdrawal transaction, generates a 6-digit verification code
+// AND a UUID token link, stores both, and emails them to the user.
+// The withdrawal stays in 'pending_verification' until confirmed by code or link.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { sendEmail, corsHeaders, jsonResponse } from '../_shared/resend.ts'
@@ -11,6 +12,13 @@ const SUPABASE_ANON     = Deno.env.get('SUPABASE_ANON_KEY')!
 const SUPABASE_SERVICE  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const SITE_URL          = Deno.env.get('SITE_URL') ?? 'https://oakmontridgecapital.com'
 const EXPIRE_MINS       = 30
+
+/** Generates a cryptographically random 6-digit numeric code */
+function generateCode(): string {
+  const arr = new Uint32Array(1)
+  crypto.getRandomValues(arr)
+  return String(arr[0] % 1_000_000).padStart(6, '0')
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
@@ -62,8 +70,10 @@ Deno.serve(async (req) => {
 
     if (txErr || !tx) throw new Error(`Failed to create transaction: ${txErr?.message}`)
 
-    // Create verification record
+    // Generate 6-digit code + create verification record
+    const verificationCode = generateCode()
     const expiresAt = new Date(Date.now() + EXPIRE_MINS * 60 * 1000).toISOString()
+
     const { data: verif, error: verifErr } = await db
       .from('withdrawal_verifications')
       .insert({
@@ -73,12 +83,13 @@ Deno.serve(async (req) => {
         currency,
         crypto_address: address.trim(),
         network:        network ?? null,
+        code:           verificationCode,
         expires_at:     expiresAt,
       })
-      .select('token')
+      .select('token, code')
       .single()
 
-    if (verifErr || !verif) throw new Error('Failed to create verification token')
+    if (verifErr || !verif) throw new Error('Failed to create verification record')
 
     const link = `${SITE_URL}/verify-withdrawal?token=${verif.token}`
     const name = profile.full_name?.split(' ')[0] ?? 'Investor'
@@ -92,6 +103,7 @@ Deno.serve(async (req) => {
         currency,
         address: address.trim(),
         link,
+        code:        verif.code,
         expiresMins: EXPIRE_MINS,
       }),
     )

@@ -1,6 +1,6 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider } from '@/contexts/AuthContext'
+import { AuthProvider, useAuth } from '@/contexts/AuthContext'
 import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext'
 import { ProtectedRoute } from '@/components/guards/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -67,9 +67,25 @@ import CookiePolicy from '@/pages/legal/CookiePolicy'
 import ContactUs from '@/pages/contact/ContactUs'
 import Blog from '@/pages/blog/Blog'
 import Careers from '@/pages/careers/Careers'
+import About from '@/pages/about/About'
+import FAQ from '@/pages/faq/FAQ'
+import Plans from '@/pages/plans/Plans'
+import Affiliate from '@/pages/affiliate/Affiliate'
+
+// Admin extras
+import AdminSupportTickets from '@/pages/admin/AdminSupportTickets'
 
 // Components
 import { CookieBanner } from '@/components/CookieBanner'
+import { SEOHead } from '@/components/SEOHead'
+
+/** Redirects logged-in users from the landing page straight to their dashboard */
+function RootRedirect() {
+  const { session, loading } = useAuth()
+  if (loading) return null
+  if (session) return <Navigate to="/dashboard" replace />
+  return <Landing />
+}
 
 export default function App() {
   return (
@@ -93,6 +109,7 @@ export default function App() {
             error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } },
           }}
         />
+        <SEOHead />
         <CookieBanner />
         <Routes>
           {/* Legal & public pages */}
@@ -102,9 +119,13 @@ export default function App() {
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/careers" element={<Careers />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/faq" element={<FAQ />} />
+          <Route path="/plans" element={<Plans />} />
+          <Route path="/affiliate" element={<Affiliate />} />
 
-          {/* Public */}
-          <Route path="/" element={<Landing />} />
+          {/* Public — root redirects logged-in users to dashboard */}
+          <Route path="/" element={<RootRedirect />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -166,6 +187,7 @@ export default function App() {
               <Route path="/admin/exchange-monitor" element={<AdminExchangeMonitor />} />
               <Route path="/admin/chat" element={<AdminChat />} />
               <Route path="/admin/live-trades" element={<AdminLiveTrades />} />
+              <Route path="/admin/support-tickets" element={<AdminSupportTickets />} />
               <Route path="/trading" element={<Trading />} />
             </Route>
           </Route>

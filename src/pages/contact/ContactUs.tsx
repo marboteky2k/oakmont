@@ -3,10 +3,11 @@ import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import {
   Mail, MessageSquare, MapPin, Clock, Send,
-  CheckCircle, ChevronRight, Share2, HelpCircle, Phone,
+  CheckCircle, ChevronRight, Share2, HelpCircle, Phone, Hash,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { supabase } from '@/lib/supabase'
 import toast from 'react-hot-toast'
 import { PublicNav } from '@/components/layout/PublicNav'
 import { LandingFooter } from '@/pages/landing/LandingFooter'
@@ -44,6 +45,7 @@ export default function ContactUs() {
   const [message, setMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [ticketNumber, setTicketNumber] = useState('')
   const cmsContact = useContactInfo()
 
   const SUPPORT_EMAIL = cmsContact.email || DEFAULT_SUPPORT_EMAIL
@@ -92,11 +94,21 @@ export default function ContactUs() {
     if (message.trim().length < 20) { toast.error('Message must be at least 20 characters'); return }
 
     setSending(true)
-    // Simulate submission — replace with actual API call / edge function
-    await new Promise(r => setTimeout(r, 1200))
-    setSending(false)
-    setSent(true)
-    toast.success('Message sent! We\'ll get back to you shortly.')
+    try {
+      const { data, error } = await supabase.functions.invoke('send-support-ticket', {
+        body: { name: name.trim(), email: email.trim(), topic, message: message.trim(), source: 'contact' },
+      })
+      if (error || !data?.success) {
+        throw new Error(data?.error ?? error?.message ?? 'Submission failed')
+      }
+      setTicketNumber(data.ticket_number ?? '')
+      setSent(true)
+      toast.success('Message sent! We\'ll get back to you shortly.')
+    } catch (err: any) {
+      toast.error(err.message ?? 'Failed to send message. Please try again.')
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -181,18 +193,30 @@ export default function ContactUs() {
                 <motion.div
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="text-center py-12"
+                  className="text-center py-10"
                 >
                   <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
                     <CheckCircle className="w-8 h-8 text-green-500" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">Message sent!</h3>
-                  <p className="text-sm text-slate-500 mb-6">
-                    Thanks for reaching out. Our support team will reply to <strong>{email}</strong> within 24 hours.
+                  <p className="text-sm text-slate-500 mb-5">
+                    Our team will reply to <strong>{email}</strong> within 24 hours.
                   </p>
+
+                  {ticketNumber && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-2xl py-4 px-6 mb-5 inline-block">
+                      <div className="flex items-center gap-2 text-blue-600 justify-center mb-1">
+                        <Hash className="w-4 h-4" />
+                        <span className="text-xs font-semibold uppercase tracking-wide">Reference Number</span>
+                      </div>
+                      <p className="text-2xl font-black text-[#1E40AF] tracking-widest font-mono">{ticketNumber}</p>
+                      <p className="text-xs text-blue-400 mt-1">Use this when following up with support</p>
+                    </div>
+                  )}
+
                   <button
-                    onClick={() => { setSent(false); setName(''); setEmail(''); setTopic(''); setMessage('') }}
-                    className="text-sm text-[#1E40AF] hover:underline font-medium"
+                    onClick={() => { setSent(false); setTicketNumber(''); setName(''); setEmail(''); setTopic(''); setMessage('') }}
+                    className="block mx-auto text-sm text-[#1E40AF] hover:underline font-medium"
                   >
                     Send another message
                   </button>

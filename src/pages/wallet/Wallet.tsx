@@ -98,9 +98,13 @@ export default function WalletPage() {
   const [copiedAddress, setCopiedAddress] = useState(false)
   const [depositNetwork, setDepositNetwork] = useState('')
 
-  // Withdrawal verification (email token link)
-  const [withdrawSent, setWithdrawSent]   = useState(false) // true = email sent, show confirmation screen
-  const [sendingWithdraw, setSendingWithdraw] = useState(false)
+  // Withdrawal verification
+  const [withdrawSent,     setWithdrawSent]     = useState(false)  // email sent → show code-entry screen
+  const [withdrawVerified, setWithdrawVerified] = useState(false)  // code accepted → show success
+  const [verifyCode,       setVerifyCode]       = useState('')      // 6-digit input
+  const [verifyingCode,    setVerifyingCode]    = useState(false)
+  const [codeError,        setCodeError]        = useState('')
+  const [sendingWithdraw,  setSendingWithdraw]  = useState(false)
   // Receipt upload
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
@@ -269,9 +273,33 @@ export default function WalletPage() {
   const closeWithdrawModal = () => {
     setWithdrawModal(false)
     setWithdrawSent(false)
+    setWithdrawVerified(false)
+    setVerifyCode('')
+    setCodeError('')
     setAmount('')
     setAddress('')
     setAddressError('')
+  }
+
+  const submitCode = async () => {
+    const trimmed = verifyCode.replace(/\s/g, '')
+    if (trimmed.length !== 6) { setCodeError('Enter the 6-digit code from your email'); return }
+    setVerifyingCode(true)
+    setCodeError('')
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('verify-withdrawal-code', {
+        body: { code: trimmed },
+      })
+      if (fnErr || data?.error) throw new Error(data?.error ?? fnErr?.message ?? 'Verification failed')
+      setWithdrawVerified(true)
+      toast.success('Withdrawal confirmed! It will be processed within 24 hours.')
+      fetchWallet(profile!.id)
+      fetchTx(profile!.id)
+    } catch (err: any) {
+      setCodeError(err.message ?? 'Invalid or expired code')
+    } finally {
+      setVerifyingCode(false)
+    }
   }
 
   const initiateWithdrawal = async () => {
@@ -747,41 +775,107 @@ export default function WalletPage() {
       <Modal
         open={withdrawModal}
         onClose={closeWithdrawModal}
-        title={withdrawSent ? 'Check Your Email' : 'Withdraw Crypto'}
+        title={withdrawVerified ? 'Withdrawal Confirmed' : withdrawSent ? 'Enter Verification Code' : 'Withdraw Crypto'}
       >
-        {withdrawSent ? (
-          /* ── Email confirmation sent screen ── */
-          <div className="space-y-5 text-center">
-            <div className="flex flex-col items-center gap-3 py-2">
-              <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-green-500" />
+        {withdrawVerified ? (
+          /* ── Step 3: Success ── */
+          <div className="space-y-5 text-center py-2">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto"
+            >
+              <CheckCircle className="w-10 h-10 text-green-500" />
+            </motion.div>
+            <div>
+              <p className="text-xl font-bold text-slate-900">Withdrawal Confirmed!</p>
+              <p className="text-sm text-slate-500 mt-1.5">Your request has been submitted and will be processed within 24 hours.</p>
+            </div>
+            <div className="bg-slate-50 rounded-xl p-4 text-left text-sm space-y-2">
+              <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="font-semibold">{amount} {currency}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-slate-400 flex-shrink-0">Address</span><span className="font-mono text-xs text-slate-700 break-all text-right">{address}</span></div>
+              <div className="flex justify-between"><span className="text-slate-400">Status</span><span className="text-amber-600 font-medium">Pending Review</span></div>
+            </div>
+            <Button onClick={closeWithdrawModal} className="w-full">Done</Button>
+          </div>
+
+        ) : withdrawSent ? (
+          /* ── Step 2: Code entry ── */
+          <div className="space-y-5">
+            {/* Header */}
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-3">
+                <Shield className="w-8 h-8 text-[#3B82F6]" />
               </div>
-              <div>
-                <p className="font-semibold text-slate-900 text-lg">Confirmation email sent!</p>
-                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-                  We sent a confirmation link to<br />
-                  <strong className="text-slate-700">{profile?.email}</strong>.<br />
-                  Click the link in the email to authorise this withdrawal.
-                </p>
-              </div>
+              <p className="font-semibold text-slate-900 text-lg">Check your email</p>
+              <p className="text-sm text-slate-500 mt-1">
+                We sent a <strong>6-digit verification code</strong> to<br />
+                <span className="font-medium text-slate-700">{profile?.email}</span>
+              </p>
             </div>
 
-            <div className="bg-slate-50 rounded-xl p-4 text-left text-sm space-y-2">
-              <p className="font-semibold text-slate-700">Withdrawal summary</p>
-              <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="font-medium">{amount} {currency}</span></div>
+            {/* Code input */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2 text-center">
+                Enter the 6-digit code from your email
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder="_ _ _ _ _ _"
+                value={verifyCode}
+                onChange={e => {
+                  const v = e.target.value.replace(/\D/g, '').slice(0, 6)
+                  setVerifyCode(v)
+                  setCodeError('')
+                }}
+                onKeyDown={e => e.key === 'Enter' && submitCode()}
+                className={`w-full text-center text-3xl font-mono font-bold tracking-[0.5em] py-4 px-3 border-2 rounded-2xl outline-none transition-colors ${
+                  codeError
+                    ? 'border-red-400 bg-red-50 text-red-700'
+                    : verifyCode.length === 6
+                    ? 'border-green-400 bg-green-50 text-green-800'
+                    : 'border-slate-200 bg-slate-50 text-slate-900 focus:border-[#3B82F6]'
+                }`}
+                autoFocus
+              />
+              {codeError && (
+                <p className="text-xs text-red-500 text-center mt-2 flex items-center justify-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" /> {codeError}
+                </p>
+              )}
+            </div>
+
+            {/* Withdrawal summary */}
+            <div className="bg-slate-50 rounded-xl p-3.5 text-sm space-y-1.5">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Withdrawal Details</p>
+              <div className="flex justify-between"><span className="text-slate-400">Amount</span><span className="font-semibold">{amount} {currency}</span></div>
               <div className="flex justify-between gap-3"><span className="text-slate-400 flex-shrink-0">Address</span><span className="font-mono text-xs text-slate-700 break-all text-right">{address}</span></div>
             </div>
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
               <p className="text-xs text-amber-700">
-                <strong>The confirmation link expires in 30 minutes.</strong> If it expires, you'll need to submit a new withdrawal request.
+                <strong>Code expires in 30 minutes.</strong> You can also click the confirmation link in the email instead.
               </p>
             </div>
 
-            <Button variant="outline" onClick={closeWithdrawModal} className="w-full">Close</Button>
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={closeWithdrawModal} className="flex-1">Cancel</Button>
+              <Button
+                onClick={submitCode}
+                loading={verifyingCode}
+                disabled={verifyCode.length !== 6}
+                className="flex-1"
+              >
+                <Shield className="w-4 h-4" /> Confirm Withdrawal
+              </Button>
+            </div>
           </div>
+
         ) : (
-          /* ── Withdrawal form ── */
+          /* ── Step 1: Withdrawal form ── */
           <div className="space-y-4">
             {profile?.kyc_status !== 'verified' && (
               <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3">
@@ -849,7 +943,7 @@ export default function WalletPage() {
               <AlertCircle className="w-4 h-4 text-yellow-500 flex-shrink-0 mt-0.5" />
               <div className="text-xs text-yellow-700 space-y-0.5">
                 <p><strong>Withdrawals require email confirmation.</strong></p>
-                <p>A confirmation link will be sent to your registered email. The link expires in 30 minutes.</p>
+                <p>A 6-digit verification code will be sent to your registered email. Enter it here to confirm.</p>
                 <p>Ensure your address is correct — transactions cannot be reversed.</p>
               </div>
             </div>

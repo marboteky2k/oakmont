@@ -132,37 +132,49 @@ export function welcomeEmail(params: { name: string; dashboardLink: string }): s
 }
 
 export function withdrawalVerificationEmail(params: {
-  name: string; amount: string; currency: string; address: string; link: string; expiresMins: number
+  name: string; amount: string; currency: string; address: string; link: string; expiresMins: number; code: string
 }): string {
   return base('Confirm Withdrawal Request', `
     <p style="margin:0 0 4px;font-size:24px;font-weight:800;color:#0F172A;">Confirm your withdrawal</p>
     <p style="margin:0 0 28px;font-size:15px;color:#64748B;">Hi ${params.name}, we received a withdrawal request from your account.</p>
 
+    <!-- Withdrawal details -->
     <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
       <table width="100%" cellpadding="0" cellspacing="0">
-        ${[['Amount', `${params.amount} ${params.currency}`], ['Destination Address', params.address], ['Currency', params.currency]].map(([k, v]) => `
+        ${[['Amount', `${params.amount} ${params.currency}`], ['Destination Address', params.address]].map(([k, v]) => `
         <tr>
-          <td style="padding:8px 0;font-size:13px;color:#64748B;width:40%;">${k}</td>
+          <td style="padding:8px 0;font-size:13px;color:#64748B;width:38%;">${k}</td>
           <td style="padding:8px 0;font-size:14px;font-weight:600;color:#0F172A;word-break:break-all;">${v}</td>
         </tr>`).join('')}
       </table>
     </div>
 
-    <p style="font-size:15px;color:#334155;line-height:1.7;">
-      To authorize this withdrawal, click the button below. If you did <strong>not</strong> request this withdrawal, please contact our support team immediately.
+    <!-- Verification code — primary method -->
+    <div style="background:#F0FDF4;border:2px solid #86EFAC;border-radius:14px;padding:24px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#166534;text-transform:uppercase;letter-spacing:1px;">Your Verification Code</p>
+      <p style="margin:0 0 10px;font-size:40px;font-weight:900;color:#15803D;letter-spacing:10px;font-family:monospace;">${params.code}</p>
+      <p style="margin:0;font-size:12px;color:#16A34A;">Enter this code in the withdrawal confirmation screen in your dashboard.</p>
+    </div>
+
+    <p style="font-size:14px;color:#334155;line-height:1.7;text-align:center;">
+      Or click the button below to confirm automatically:
     </p>
 
     <div style="text-align:center;">
       ${btn(params.link, 'Confirm Withdrawal', '#059669')}
     </div>
 
-    ${warning(`This confirmation link expires in <strong>${params.expiresMins} minutes</strong>. Cryptocurrency transactions cannot be reversed once processed.`)}
+    ${warning(`This code and link expire in <strong>${params.expiresMins} minutes</strong>. Cryptocurrency transactions cannot be reversed once processed.`)}
 
     ${divider()}
 
     <p style="font-size:13px;color:#94A3B8;">
-      If the button doesn't work, copy and paste this link:<br/>
-      <a href="${params.link}" style="color:#3B82F6;word-break:break-all;">${params.link}</a>
+      Backup link: <a href="${params.link}" style="color:#3B82F6;word-break:break-all;">${params.link}</a>
+    </p>
+
+    <p style="font-size:13px;color:#94A3B8;margin-top:12px;">
+      If you did <strong>not</strong> request this withdrawal, contact support immediately at
+      <a href="mailto:support@oakmontridgecapital.com" style="color:#3B82F6;">support@oakmontridgecapital.com</a>
     </p>
   `)
 }
@@ -236,6 +248,82 @@ export function kycRejectedEmail(params: { name: string; reason: string; kycLink
     <p style="font-size:13px;color:#94A3B8;text-align:center;margin-top:16px;">
       Questions? Contact <a href="mailto:support@oakmontridgecapital.com" style="color:#3B82F6;">support@oakmontridgecapital.com</a>
     </p>
+  `)
+}
+
+export function supportTicketAdminEmail(params: {
+  ticketNumber: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  source: string;
+  createdAt: string;
+}): string {
+  const sourceLabel = params.source === 'contact' ? 'Contact Us page' : 'Support Center'
+  return base(`New Support Ticket ${params.ticketNumber}`, `
+    <p style="margin:0 0 4px;font-size:24px;font-weight:800;color:#0F172A;">New Support Ticket</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748B;">A new ticket has been submitted via the ${sourceLabel}.</p>
+
+    <div style="background:#F8FAFC;border:2px solid #E2E8F0;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        ${[
+          ['Ticket #', params.ticketNumber],
+          ['Name', params.name],
+          ['Email', params.email],
+          ['Subject', params.subject || '—'],
+          ['Source', sourceLabel],
+          ['Submitted', params.createdAt],
+        ].map(([k, v]) => `
+        <tr>
+          <td style="padding:8px 0;font-size:13px;color:#64748B;width:30%;vertical-align:top;">${k}</td>
+          <td style="padding:8px 0;font-size:14px;font-weight:600;color:#0F172A;">${v}</td>
+        </tr>`).join('')}
+      </table>
+    </div>
+
+    <div style="background:#fff;border:1px solid #E2E8F0;border-radius:12px;padding:20px 24px;margin-bottom:24px;">
+      <p style="margin:0 0 10px;font-size:13px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:0.5px;">Message</p>
+      <p style="margin:0;font-size:14px;color:#334155;line-height:1.8;white-space:pre-wrap;">${params.message}</p>
+    </div>
+
+    ${note('Reply directly to this email or log into the admin panel to manage this ticket.')}
+  `)
+}
+
+export function supportTicketUserEmail(params: {
+  ticketNumber: string;
+  name: string;
+  subject: string;
+  message: string;
+  dashboardLink: string;
+}): string {
+  return base(`Support Ticket ${params.ticketNumber} Received`, `
+    <p style="margin:0 0 4px;font-size:24px;font-weight:800;color:#0F172A;">We've received your message</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#64748B;">Hi ${params.name}, your support request has been submitted.</p>
+
+    <!-- Ticket badge -->
+    <div style="background:#EFF6FF;border:2px solid #BFDBFE;border-radius:14px;padding:20px;margin-bottom:24px;text-align:center;">
+      <p style="margin:0 0 6px;font-size:12px;font-weight:700;color:#1E40AF;text-transform:uppercase;letter-spacing:1px;">Your Ticket Number</p>
+      <p style="margin:0;font-size:32px;font-weight:900;color:#1E40AF;letter-spacing:4px;font-family:monospace;">${params.ticketNumber}</p>
+      <p style="margin:8px 0 0;font-size:12px;color:#3B82F6;">Keep this for reference when following up</p>
+    </div>
+
+    <div style="background:#F8FAFC;border:1px solid #E2E8F0;border-radius:12px;padding:16px 20px;margin-bottom:24px;">
+      <p style="margin:0 0 6px;font-size:13px;font-weight:600;color:#475569;">${params.subject || 'Support Request'}</p>
+      <p style="margin:0;font-size:13px;color:#64748B;line-height:1.7;white-space:pre-wrap;">${params.message.length > 300 ? params.message.slice(0, 300) + '…' : params.message}</p>
+    </div>
+
+    <p style="font-size:15px;color:#334155;line-height:1.7;">
+      Our support team will review your request and respond within <strong>24 hours</strong>.
+      You'll receive a reply directly to this email address.
+    </p>
+
+    ${note('If your issue is urgent, you can also email <a href="mailto:support@oakmontridgecapital.com" style="color:#1E40AF;">support@oakmontridgecapital.com</a> directly and reference your ticket number.')}
+
+    <div style="text-align:center;">
+      ${btn(params.dashboardLink, 'Go to Dashboard')}
+    </div>
   `)
 }
 

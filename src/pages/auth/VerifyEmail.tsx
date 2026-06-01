@@ -54,17 +54,44 @@ function TokenVerifier({ token }: { token: string }) {
       )}
 
       {status === 'success' && (
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-4">
-          <div className="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mx-auto">
-            <CheckCircle className="w-8 h-8 text-green-500" />
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5">
+          {/* Big success tick */}
+          <div className="text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 20, delay: 0.1 }}
+              className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4"
+            >
+              <CheckCircle className="w-10 h-10 text-green-500" />
+            </motion.div>
+            <h2 className="text-xl font-bold text-slate-900">Email Verified!</h2>
+            {email && (
+              <p className="text-sm text-slate-500 mt-1 break-all">{email}</p>
+            )}
           </div>
-          <div>
-            <p className="font-semibold text-slate-900 text-lg">Email verified! ✓</p>
-            {email && <p className="text-sm text-slate-500 mt-1">{email}</p>}
-            <p className="text-sm text-green-600 mt-2 font-medium">Redirecting to identity verification…</p>
+
+          {/* Success details card */}
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-2.5">
+            {[
+              'Your email address has been confirmed',
+              'Your account is now fully activated',
+              'Next step: complete identity verification (KYC)',
+            ].map((msg, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-green-800">{msg}</p>
+              </div>
+            ))}
           </div>
-          <Button className="w-full" onClick={() => navigate('/kyc', { replace: true })}>
-            Continue to KYC Verification
+
+          {/* Redirect notice */}
+          <div className="text-center">
+            <p className="text-xs text-slate-400">Redirecting you automatically in a moment…</p>
+          </div>
+
+          <Button className="w-full" size="lg" onClick={() => navigate('/kyc', { replace: true })}>
+            Continue to KYC Verification →
           </Button>
         </motion.div>
       )}
@@ -196,7 +223,7 @@ export default function VerifyEmail() {
             <TrendingUp className="w-6 h-6 text-white" />
           </div>
           <h1 className="text-xl font-bold">
-            {token ? 'Verifying your email' : 'Verify your email'}
+            {token ? 'Email Verification' : 'Verify your email'}
           </h1>
           <p className="text-blue-200 text-sm mt-1">Oakmont Ridge Capital</p>
         </div>

@@ -69,10 +69,26 @@ export interface BrandSettings {
   logo_url?: string      // uploaded logo image URL
 }
 
+export interface SEOSettings {
+  site_title: string        // Base page title shown in browser tab
+  title_separator: string   // e.g. " | " → "Dashboard | Oakmont Ridge Capital"
+  meta_description: string
+  meta_keywords: string
+  og_title: string          // Open Graph title for social sharing
+  og_description: string    // Open Graph description
+  og_image: string          // Absolute URL for social share image (1200×630)
+  twitter_card: string      // "summary_large_image" | "summary"
+  twitter_handle: string    // "@oakmontridge"
+  google_analytics_id: string  // "G-XXXXXXXXXX"
+  facebook_pixel_id: string    // "123456789"
+  robots: string            // "index, follow"
+}
+
 export interface SiteSettings {
   hero: HeroSettings
   stats_bar: StatsBarSettings
   testimonials: TestimonialsSettings
   faq: FAQSettings
   brand: BrandSettings
+  seo: SEOSettings
 }

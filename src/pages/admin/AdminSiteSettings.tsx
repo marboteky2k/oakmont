@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   Save, Globe, Plus, Trash2, Edit2, ChevronUp, ChevronDown,
-  Eye, EyeOff, Check, Upload, ImageIcon, X,
+  Eye, EyeOff, Check, Upload, ImageIcon, X, Search,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -12,13 +12,13 @@ import { Modal } from '@/components/ui/Modal'
 import { SITE_DEFAULTS } from '@/contexts/SiteSettingsContext'
 import type {
   SiteSettings, HeroSettings, StatsBarSettings,
-  TestimonialsSettings, FAQSettings, BrandSettings,
+  TestimonialsSettings, FAQSettings, BrandSettings, SEOSettings,
   Testimonial, FAQItem, StatItem,
 } from '@/types/settings'
 import toast from 'react-hot-toast'
 
 // ── Tabs ──────────────────────────────────────────────────────
-type Tab = 'hero' | 'stats_bar' | 'testimonials' | 'faq' | 'brand' | 'pages' | 'legal'
+type Tab = 'hero' | 'stats_bar' | 'testimonials' | 'faq' | 'brand' | 'pages' | 'legal' | 'seo'
 const TABS: { id: Tab; label: string }[] = [
   { id: 'hero',         label: 'Hero'          },
   { id: 'stats_bar',    label: 'Stats Bar'     },
@@ -27,6 +27,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'brand',        label: 'Brand & Contact'},
   { id: 'pages',        label: 'Pages'         },
   { id: 'legal',        label: 'Legal'         },
+  { id: 'seo',          label: 'SEO'           },
 ]
 
 // ── Tailwind colour options for testimonial avatars ───────────
@@ -52,6 +53,7 @@ export default function AdminSiteSettings() {
   const [testimonials, setTestimonials] = useState<TestimonialsSettings>(SITE_DEFAULTS.testimonials)
   const [faq,          setFaq]          = useState<FAQSettings>(SITE_DEFAULTS.faq)
   const [brand,        setBrand]        = useState<BrandSettings>(SITE_DEFAULTS.brand)
+  const [seo,          setSeo]          = useState<SEOSettings>(SITE_DEFAULTS.seo)
 
   // ── Load from Supabase ──────────────────────────────────────
   const load = useCallback(async () => {
@@ -74,6 +76,7 @@ export default function AdminSiteSettings() {
       setTestimonials(parse('testimonials', SITE_DEFAULTS.testimonials))
       setFaq(parse('faq', SITE_DEFAULTS.faq))
       setBrand(parse('brand', SITE_DEFAULTS.brand))
+      setSeo(parse('seo', SITE_DEFAULTS.seo))
     }
     setLoaded(true)
   }, [])
@@ -178,6 +181,12 @@ export default function AdminSiteSettings() {
       {/* ── LEGAL TAB ────────────────────────────────────────── */}
       {activeTab === 'legal' && (
         <LegalTab saving={saving} />
+      )}
+
+      {/* ── SEO TAB ──────────────────────────────────────────── */}
+      {activeTab === 'seo' && (
+        <SEOTab seo={seo} setSeo={setSeo} saving={saving}
+          onSave={() => save('seo', seo)} />
       )}
     </div>
   )
@@ -1167,6 +1176,132 @@ function LegalTab({ saving }: { saving: boolean }) {
       <div className="flex justify-end">
         <Button onClick={saveDoc} loading={savingDoc}>
           <Save className="w-4 h-4" /> Save {active.label}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// =============================================================
+// Shared: colour field with picker
+// =============================================================
+// =============================================================
+// SEO TAB
+// =============================================================
+function SEOTab({ seo, setSeo, saving, onSave }: {
+  seo: SEOSettings
+  setSeo: (s: SEOSettings) => void
+  saving: boolean
+  onSave: () => void
+}) {
+  const set = (patch: Partial<SEOSettings>) => setSeo({ ...seo, ...patch })
+
+  const field = (
+    label: string,
+    key: keyof SEOSettings,
+    opts?: { placeholder?: string; hint?: string; rows?: number; mono?: boolean }
+  ) => (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1">{label}</label>
+      {opts?.hint && <p className="text-xs text-slate-400 mb-2">{opts.hint}</p>}
+      {opts?.rows ? (
+        <textarea
+          value={(seo[key] ?? '') as string}
+          onChange={e => set({ [key]: e.target.value } as Partial<SEOSettings>)}
+          rows={opts.rows}
+          placeholder={opts?.placeholder}
+          className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/20 focus:border-[#1E40AF] resize-none ${opts?.mono ? 'font-mono' : ''}`}
+        />
+      ) : (
+        <input
+          type="text"
+          value={(seo[key] ?? '') as string}
+          onChange={e => set({ [key]: e.target.value } as Partial<SEOSettings>)}
+          placeholder={opts?.placeholder}
+          className={`w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/20 focus:border-[#1E40AF] ${opts?.mono ? 'font-mono' : ''}`}
+        />
+      )}
+    </div>
+  )
+
+  return (
+    <div className="space-y-6">
+      {/* Section: Basic Meta */}
+      <Card>
+        <div className="flex items-center gap-2 mb-5">
+          <Search className="w-4 h-4 text-[#3B82F6]" />
+          <h3 className="font-semibold text-slate-900">Search Engine Basics</h3>
+        </div>
+        <div className="space-y-4">
+          {field('Site Title', 'site_title', { placeholder: 'Oakmont Ridge Capital', hint: 'The name shown in browser tabs and search results.' })}
+          {field('Title Separator', 'title_separator', { placeholder: ' | ', hint: 'Used between page name and site title, e.g. "Dashboard | Oakmont Ridge Capital".' })}
+          {field('Meta Description', 'meta_description', {
+            rows: 3,
+            placeholder: 'A concise description of the site (150–160 characters) shown in search snippets.',
+            hint: 'Recommended: 150–160 characters.',
+          })}
+          {field('Meta Keywords', 'meta_keywords', { placeholder: 'forex trading, copy trading, crypto investment', hint: 'Comma-separated. Minimal SEO impact but useful for categorisation.' })}
+          {field('Robots Directive', 'robots', { placeholder: 'index, follow', hint: '"index, follow" is standard. Use "noindex" to hide the site from search engines.' })}
+        </div>
+      </Card>
+
+      {/* Section: Open Graph / Social */}
+      <Card>
+        <div className="flex items-center gap-2 mb-5">
+          <Globe className="w-4 h-4 text-[#3B82F6]" />
+          <h3 className="font-semibold text-slate-900">Social Sharing (Open Graph)</h3>
+          <p className="text-xs text-slate-400 ml-1">— Controls how the site looks when shared on Facebook, LinkedIn, WhatsApp, etc.</p>
+        </div>
+        <div className="space-y-4">
+          {field('OG Title', 'og_title', { placeholder: 'Oakmont Ridge Capital — Copy Expert Traders', hint: 'Headline shown when the link is shared. Defaults to Site Title if empty.' })}
+          {field('OG Description', 'og_description', { rows: 2, placeholder: 'Join thousands of investors copying the world\'s best traders.' })}
+          {field('OG Image URL', 'og_image', { placeholder: 'https://oakmontridgecapital.com/og-image.png', hint: 'Recommended size: 1200×630 px. Enter an absolute URL.' })}
+          {seo.og_image && (
+            <div>
+              <p className="text-xs text-slate-500 mb-1.5">Preview:</p>
+              <img
+                src={seo.og_image}
+                alt="OG Preview"
+                className="w-full max-w-sm h-36 object-cover rounded-xl border border-slate-200"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+              />
+            </div>
+          )}
+        </div>
+      </Card>
+
+      {/* Section: Twitter */}
+      <Card>
+        <h3 className="font-semibold text-slate-900 mb-5">Twitter / X Card</h3>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Card Type</label>
+            <select
+              value={seo.twitter_card}
+              onChange={e => set({ twitter_card: e.target.value })}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1E40AF]/20 focus:border-[#1E40AF]"
+            >
+              <option value="summary_large_image">Summary with Large Image (recommended)</option>
+              <option value="summary">Summary (small image)</option>
+            </select>
+          </div>
+          {field('Twitter Handle', 'twitter_handle', { placeholder: '@oakmontridge', hint: 'Your @handle on Twitter/X.' })}
+        </div>
+      </Card>
+
+      {/* Section: Analytics */}
+      <Card>
+        <h3 className="font-semibold text-slate-900 mb-1">Analytics & Tracking</h3>
+        <p className="text-xs text-slate-400 mb-5">Scripts are injected once per session. Leave blank to disable.</p>
+        <div className="space-y-4">
+          {field('Google Analytics ID', 'google_analytics_id', { placeholder: 'G-XXXXXXXXXX', mono: true, hint: 'Found in your Google Analytics 4 property settings.' })}
+          {field('Facebook Pixel ID', 'facebook_pixel_id', { placeholder: '123456789012345', mono: true, hint: 'Found in Facebook Events Manager → Pixel settings.' })}
+        </div>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button onClick={onSave} loading={saving}>
+          <Save className="w-4 h-4" /> Save SEO Settings
         </Button>
       </div>
     </div>

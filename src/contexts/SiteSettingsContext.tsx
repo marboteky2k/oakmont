@@ -2,7 +2,7 @@
 import { supabase } from '@/lib/supabase'
 import type {
   SiteSettings, HeroSettings, StatsBarSettings,
-  TestimonialsSettings, FAQSettings, BrandSettings,
+  TestimonialsSettings, FAQSettings, BrandSettings, SEOSettings,
 } from '@/types/settings'
 
 // =============================================================
@@ -68,6 +68,21 @@ const DEFAULT_FAQ: FAQSettings = {
   ],
 }
 
+const DEFAULT_SEO: SEOSettings = {
+  site_title:           'Oakmont Ridge Capital',
+  title_separator:      ' | ',
+  meta_description:     'Oakmont Ridge Capital — Professional forex copy trading and crypto investment platform. Copy expert traders and grow your wealth automatically.',
+  meta_keywords:        'forex trading, copy trading, crypto investment, automated trading, investment platform',
+  og_title:             'Oakmont Ridge Capital — Copy Expert Traders',
+  og_description:       'Join thousands of investors copying the world\'s best forex traders. Start earning consistent returns today.',
+  og_image:             '/og-image.png',
+  twitter_card:         'summary_large_image',
+  twitter_handle:       '@oakmontridge',
+  google_analytics_id:  '',
+  facebook_pixel_id:    '',
+  robots:               'index, follow',
+}
+
 const DEFAULT_BRAND: BrandSettings = {
   company_name:  'Oakmont Ridge Capital',
   tagline:       'Professional forex copy trading and crypto investment platform. Grow your wealth with the world\'s best-verified traders.',
@@ -85,6 +100,7 @@ export const SITE_DEFAULTS: SiteSettings = {
   testimonials: DEFAULT_TESTIMONIALS,
   faq:          DEFAULT_FAQ,
   brand:        DEFAULT_BRAND,
+  seo:          DEFAULT_SEO,
 }
 
 // =============================================================
