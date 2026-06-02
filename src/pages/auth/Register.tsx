@@ -164,6 +164,7 @@ export default function Register() {
   const [step, setStep] = useState(1)
   const [loading, setLoading] = useState(false)
   const [registeredEmail, setRegisteredEmail] = useState('')
+  const [emailFailed, setEmailFailed] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [watchedPassword, setWatchedPassword] = useState('')
   const [math, setMath] = useState(generateMath)
@@ -200,13 +201,10 @@ export default function Register() {
         assetInterests: step2Data.assets,
       })
 
-      // Send verification email (public function — works before user has a session)
-      supabase.functions.invoke('send-verification', {
-        body: { email: step1Data.email },
-      }).catch(() => {})
-
-      // Show success screen (step 4) — do NOT auto-login
+      // Supabase sends the confirmation email automatically via its own email service.
+      // Show success screen (step 4) — do NOT auto-login until email is verified
       setRegisteredEmail(step1Data.email)
+      setEmailFailed(false) // Supabase's own email service is reliable
       setStep(4)
     } catch (err: any) {
       toast.error(err.message ?? 'Registration failed. Please try again.')
@@ -236,27 +234,54 @@ export default function Register() {
           <div className="px-8 py-8 -mt-4">
             <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-6 space-y-5">
               <div className="text-center">
-                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-3">
-                  <Mail className="w-8 h-8 text-[#3B82F6]" />
+                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 ${emailFailed ? 'bg-amber-50' : 'bg-blue-50'}`}>
+                  <Mail className={`w-8 h-8 ${emailFailed ? 'text-amber-500' : 'text-[#3B82F6]'}`} />
                 </div>
-                <p className="font-semibold text-slate-900 text-lg">Check your email inbox</p>
-                <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
-                  We sent a verification link to{' '}
-                  <span className="font-semibold text-slate-700 break-all">{registeredEmail}</span>.<br/>
-                  Click the link to verify your email before logging in.
-                </p>
+                {emailFailed ? (
+                  <>
+                    <p className="font-semibold text-slate-900 text-lg">Account created!</p>
+                    <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+                      Your account for <span className="font-semibold text-slate-700 break-all">{registeredEmail}</span> is ready,
+                      but we couldn't send the verification email right now.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-semibold text-slate-900 text-lg">Check your email inbox</p>
+                    <p className="text-sm text-slate-500 mt-1.5 leading-relaxed">
+                      We sent a verification link to{' '}
+                      <span className="font-semibold text-slate-700 break-all">{registeredEmail}</span>.<br/>
+                      Click the link to verify your email before logging in.
+                    </p>
+                  </>
+                )}
               </div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-1.5">
-                {[
-                  'Check your spam or junk folder if you don\'t see it',
-                  'The verification link expires after 24 hours',
-                  'You must verify before you can sign in',
-                ].map(tip => (
-                  <p key={tip} className="text-xs text-blue-700 flex items-start gap-1.5">
-                    <span className="text-blue-400 font-bold mt-0.5">·</span> {tip}
-                  </p>
-                ))}
-              </div>
+              {emailFailed ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-1.5">
+                  <p className="text-xs font-semibold text-amber-700 mb-1">What to do next:</p>
+                  {[
+                    'Email us at support@oakmontridgecapital.com to manually verify your account',
+                    'Include the email address you used to register',
+                    'We will verify you within 24 hours',
+                  ].map(tip => (
+                    <p key={tip} className="text-xs text-amber-700 flex items-start gap-1.5">
+                      <span className="font-bold mt-0.5">·</span> {tip}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 space-y-1.5">
+                  {[
+                    'Check your spam or junk folder if you don\'t see it',
+                    'The verification link expires after 24 hours',
+                    'You must verify before you can sign in',
+                  ].map(tip => (
+                    <p key={tip} className="text-xs text-blue-700 flex items-start gap-1.5">
+                      <span className="text-blue-400 font-bold mt-0.5">·</span> {tip}
+                    </p>
+                  ))}
+                </div>
+              )}
               <Link to="/login">
                 <button className="w-full py-3 rounded-xl bg-[#1E40AF] hover:bg-[#1e3a8a] text-white font-semibold text-sm transition-colors">
                   Back to Sign In

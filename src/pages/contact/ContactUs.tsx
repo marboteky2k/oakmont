@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { supabase } from '@/lib/supabase'
+import { invokeFunction } from '@/lib/functions'
 import toast from 'react-hot-toast'
 import { PublicNav } from '@/components/layout/PublicNav'
 import { LandingFooter } from '@/pages/landing/LandingFooter'
@@ -95,13 +95,10 @@ export default function ContactUs() {
 
     setSending(true)
     try {
-      const { data, error } = await supabase.functions.invoke('send-support-ticket', {
-        body: { name: name.trim(), email: email.trim(), topic, message: message.trim(), source: 'contact' },
+      const data = await invokeFunction<{ ticket_number?: string }>('send-support-ticket', {
+        name: name.trim(), email: email.trim(), topic, message: message.trim(), source: 'contact',
       })
-      if (error || !data?.success) {
-        throw new Error(data?.error ?? error?.message ?? 'Submission failed')
-      }
-      setTicketNumber(data.ticket_number ?? '')
+      setTicketNumber(data?.ticket_number ?? '')
       setSent(true)
       toast.success('Message sent! We\'ll get back to you shortly.')
     } catch (err: any) {

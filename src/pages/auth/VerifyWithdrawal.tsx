@@ -3,6 +3,7 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { CheckCircle, XCircle, Loader2, TrendingUp, ArrowUpFromLine } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { invokeFunction } from '@/lib/functions'
 import { Button } from '@/components/ui/Button'
 
 interface WithdrawalDetails {
@@ -30,18 +31,15 @@ export default function VerifyWithdrawal() {
     let cancelled = false
     const verify = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('verify-withdrawal-token', {
-          body: { token },
-        })
+        const data = await invokeFunction<{ already_verified?: boolean; withdrawal?: WithdrawalDetails }>('verify-withdrawal-token', { token })
         if (cancelled) return
-        if (error || data?.error) throw new Error(data?.error ?? error?.message ?? 'Confirmation failed')
 
         if (data?.already_verified) {
           setStatus('already_verified')
           return
         }
 
-        setWithdrawal(data.withdrawal)
+        setWithdrawal(data.withdrawal ?? null)
         setStatus('success')
       } catch (err: any) {
         if (!cancelled) {

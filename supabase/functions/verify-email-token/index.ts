@@ -6,33 +6,31 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { sendEmail, corsHeaders, jsonResponse } from '../_shared/resend.ts'
 import { welcomeEmail } from '../_shared/templates.ts'
 
-const SUPABASE_URL      = Deno.env.get('SUPABASE_URL')!
-const SUPABASE_SERVICE  = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SITE_URL          = Deno.env.get('SITE_URL') ?? 'https://oakmontridgecapital.com'
+const SUPABASE_URL     = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SITE_URL         = Deno.env.get('SITE_URL') ?? 'https://oakmontridgecapital.com'
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
     const { token } = await req.json()
-    if (!token) return jsonResponse({ error: 'token is required' }, 400)
+    if (!token) return jsonResponse({ success: false, error: 'token is required' })
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE)
 
-    // Find valid, unused, non-expired token
     const { data: record, error } = await db
       .from('email_verifications')
       .select('id, user_id, email, used_at, expires_at')
       .eq('token', token)
       .single()
 
-    if (error || !record) return jsonResponse({ error: 'Invalid or expired verification link.' }, 400)
-    if (record.used_at)   return jsonResponse({ error: 'This verification link has already been used.' }, 400)
+    if (error || !record) return jsonResponse({ success: false, error: 'Invalid or expired verification link.' })
+    if (record.used_at)   return jsonResponse({ success: false, error: 'This verification link has already been used.' })
     if (new Date(record.expires_at) < new Date()) {
-      return jsonResponse({ error: 'This verification link has expired. Please request a new one.' }, 400)
+      return jsonResponse({ success: false, error: 'This verification link has expired. Please request a new one.' })
     }
 
-    // Get user details
     const { data: user } = await db
       .from('users')
       .select('full_name, email_verified')
@@ -40,23 +38,12 @@ Deno.serve(async (req) => {
       .single()
 
     if (user?.email_verified) {
-      // Already verified by a different path — idempotent success
       return jsonResponse({ success: true, email: record.email })
     }
 
-    // Mark user as verified
-    await db
-      .from('users')
-      .update({ email_verified: true })
-      .eq('id', record.user_id)
+    await db.from('users').update({ email_verified: true }).eq('id', record.user_id)
+    await db.from('email_verifications').update({ used_at: new Date().toISOString() }).eq('id', record.id)
 
-    // Consume the token
-    await db
-      .from('email_verifications')
-      .update({ used_at: new Date().toISOString() })
-      .eq('id', record.id)
-
-    // Send welcome email (fire-and-forget — don't fail the verification if this errors)
     const name = user?.full_name?.split(' ')[0] ?? 'Investor'
     sendEmail(
       record.email,
@@ -67,6 +54,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true, email: record.email })
   } catch (err: any) {
     console.error('verify-email-token error:', err)
-    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
+    return jsonResponse({ success: false, error: err.message ?? 'Internal error' })
   }
 })

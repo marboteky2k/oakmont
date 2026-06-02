@@ -5,6 +5,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+function json(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
@@ -14,19 +21,27 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     )
 
-    // Verify admin
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Unauthorized')
+    if (!authHeader) return json({ success: false, error: 'Unauthorized' }, 401)
+
     const { data: { user } } = await supabase.auth.getUser(authHeader.replace('Bearer ', ''))
-    if (!user) throw new Error('Unauthorized')
+    if (!user) return json({ success: false, error: 'Unauthorized' }, 401)
+
     const { data: adminProfile } = await supabase.from('users').select('role').eq('id', user.id).single()
-    if (!['admin', 'super_admin'].includes((adminProfile as any)?.role)) throw new Error('Forbidden')
+    if (!['admin', 'super_admin'].includes((adminProfile as any)?.role)) {
+      return json({ success: false, error: 'Forbidden' })
+    }
 
     const { userId, amount, currency, note } = await req.json()
     const numAmount = parseFloat(amount)
-    if (isNaN(numAmount) || numAmount <= 0) throw new Error('Invalid amount')
+    if (isNaN(numAmount) || numAmount <= 0) {
+      return json({ success: false, error: 'Invalid amount' })
+    }
 
-    const balanceField = currency === 'USDT' ? 'balance_usdt' : currency === 'BTC' ? 'balance_btc' : 'balance_eth'
+    const balanceField =
+      currency === 'USDT' ? 'balance_usdt' :
+      currency === 'BTC'  ? 'balance_btc'  : 'balance_eth'
+
     const { data: wallet } = await supabase.from('wallets').select(balanceField).eq('user_id', userId).single()
     const currentBalance = (wallet as any)?.[balanceField] ?? 0
 
@@ -36,37 +51,33 @@ Deno.serve(async (req) => {
     }).eq('user_id', userId)
 
     await supabase.from('transactions').insert({
-      user_id: userId,
-      type: 'deposit',
-      amount: numAmount,
+      user_id:    userId,
+      type:       'deposit',
+      amount:     numAmount,
       currency,
-      status: 'confirmed',
-      note: note ?? 'Admin manual credit',
+      status:     'confirmed',
+      note:       note ?? 'Admin manual credit',
       created_at: new Date().toISOString(),
     })
 
     await supabase.from('notifications').insert({
       user_id: userId,
-      title: 'Account Credited',
+      title:   'Account Credited',
       message: `${numAmount} ${currency} has been credited to your account by an administrator.`,
-      type: 'success',
+      type:    'success',
     })
 
     await supabase.from('audit_logs').insert({
-      admin_id: user.id,
-      action: 'admin_credit',
+      admin_id:    user.id,
+      action:      'admin_credit',
       target_type: 'wallet',
-      target_id: userId,
-      details: { amount: numAmount, currency, note },
+      target_id:   userId,
+      details:     { amount: numAmount, currency, note },
     })
 
-    return new Response(JSON.stringify({ success: true }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  } catch (error: any) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+    return json({ success: true })
+  } catch (err: any) {
+    console.error('admin-credit-wallet error:', err)
+    return json({ success: false, error: err.message ?? 'Internal error' })
   }
 })

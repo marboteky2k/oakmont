@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   try {
     const { email } = await req.json()
     if (!email || typeof email !== 'string') {
-      return jsonResponse({ error: 'email is required' }, 400)
+      return jsonResponse({ success: false, error: 'email is required' })
     }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE, {
@@ -51,15 +51,23 @@ Deno.serve(async (req) => {
     const name = user.full_name?.split(' ')[0] ?? 'there'
     const link = linkData.properties.action_link
 
-    await sendEmail(
-      email,
-      'Reset Your Password — Oakmont Ridge Capital',
-      passwordResetEmail({ name, link }),
-    )
+    try {
+      await sendEmail(
+        email,
+        'Reset Your Password — Oakmont Ridge Capital',
+        passwordResetEmail({ name, link }),
+      )
+    } catch (mailErr: any) {
+      console.error('Password reset email failed:', mailErr.message)
+      return jsonResponse({
+        success: false,
+        error: 'We could not send the reset email right now. Please try again later or contact support@oakmontridgecapital.com',
+      })
+    }
 
     return jsonResponse({ success: true })
   } catch (err: any) {
     console.error('send-password-reset error:', err)
-    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
+    return jsonResponse({ success: false, error: err.message ?? 'Internal error' })
   }
 })

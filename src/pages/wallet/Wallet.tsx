@@ -6,6 +6,7 @@ import {
   ChevronLeft, ChevronRight, Upload, ImageIcon, X, ArrowLeftRight, RefreshCw,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { invokeFunction } from '@/lib/functions'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -99,12 +100,14 @@ export default function WalletPage() {
   const [depositNetwork, setDepositNetwork] = useState('')
 
   // Withdrawal verification
-  const [withdrawSent,     setWithdrawSent]     = useState(false)  // email sent → show code-entry screen
-  const [withdrawVerified, setWithdrawVerified] = useState(false)  // code accepted → show success
-  const [verifyCode,       setVerifyCode]       = useState('')      // 6-digit input
-  const [verifyingCode,    setVerifyingCode]    = useState(false)
-  const [codeError,        setCodeError]        = useState('')
-  const [sendingWithdraw,  setSendingWithdraw]  = useState(false)
+  const [withdrawSent,      setWithdrawSent]      = useState(false)  // step 2: code entry
+  const [withdrawVerified,  setWithdrawVerified]  = useState(false)  // step 3: success
+  const [verifyCode,        setVerifyCode]        = useState('')      // 6-digit input
+  const [verifyingCode,     setVerifyingCode]     = useState(false)
+  const [codeError,         setCodeError]         = useState('')
+  const [sendingWithdraw,   setSendingWithdraw]   = useState(false)
+  const [emailDelivered,    setEmailDelivered]    = useState(true)   // false → show inline code
+  const [inlineCode,        setInlineCode]        = useState('')     // fallback code when email fails
   // Receipt upload
   const [receiptFile, setReceiptFile] = useState<File | null>(null)
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null)
@@ -279,6 +282,8 @@ export default function WalletPage() {
     setAmount('')
     setAddress('')
     setAddressError('')
+    setEmailDelivered(true)
+    setInlineCode('')
   }
 
   const submitCode = async () => {
@@ -287,10 +292,7 @@ export default function WalletPage() {
     setVerifyingCode(true)
     setCodeError('')
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('verify-withdrawal-code', {
-        body: { code: trimmed },
-      })
-      if (fnErr || data?.error) throw new Error(data?.error ?? fnErr?.message ?? 'Verification failed')
+      await invokeFunction('verify-withdrawal-code', { code: trimmed })
       setWithdrawVerified(true)
       toast.success('Withdrawal confirmed! It will be processed within 24 hours.')
       fetchWallet(profile!.id)
@@ -308,24 +310,43 @@ export default function WalletPage() {
     if (!valid) { toast.error(error ?? 'Invalid wallet address'); return }
     const amt = parseFloat(amount)
     if (isNaN(amt) || amt <= 0) { toast.error('Enter a valid amount'); return }
-    if (!profile?.email) { toast.error('No email on account'); return }
 
     // Check KYC
-    if (profile.kyc_status !== 'verified') {
+    if (profile?.kyc_status !== 'verified') {
       toast.error('KYC verification required before withdrawals. Please complete your identity verification.')
+      return
+    }
+
+    // Check wallet balance (frontend guard — backend also checks)
+    const available =
+      currency === 'USDT' ? (wallet?.balance_usdt ?? 0) :
+      currency === 'BTC'  ? (wallet?.balance_btc  ?? 0) :
+                            (wallet?.balance_eth  ?? 0)
+    if (amt > available) {
+      toast.error(`Insufficient balance. Available: ${available.toFixed(8)} ${currency}`)
       return
     }
 
     setSendingWithdraw(true)
     try {
-      const { data, error: fnErr } = await supabase.functions.invoke('send-withdrawal-verification', {
-        body: { amount: amt, currency, address: address.trim(), network: detectedNetwork ?? undefined },
+      const result = await invokeFunction<{
+        tx_id: string; code: string; expires_mins: number; email_delivered: boolean
+      }>('send-withdrawal-verification', {
+        amount: amt, currency, address: address.trim(), network: detectedNetwork ?? undefined,
       })
-      if (fnErr || data?.error) throw new Error(data?.error ?? fnErr?.message ?? 'Failed to initiate withdrawal')
+      const delivered = result?.email_delivered !== false
+      setEmailDelivered(delivered)
+      if (result?.code) {
+        setInlineCode(result.code)
+        setVerifyCode(result.code) // pre-fill so user just clicks Confirm
+      }
       setWithdrawSent(true)
-      toast.success(`Confirmation email sent to ${profile.email}`)
+      toast.success(delivered
+        ? `Code sent to ${profile!.email ?? 'your email'} and shown below`
+        : 'Your verification code is shown below — enter it to confirm'
+      )
     } catch (err: any) {
-      toast.error(err.message ?? 'Failed to send confirmation email')
+      toast.error(err.message ?? 'Failed to initiate withdrawal')
     } finally {
       setSendingWithdraw(false)
     }
@@ -808,17 +829,26 @@ export default function WalletPage() {
               <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-3">
                 <Shield className="w-8 h-8 text-[#3B82F6]" />
               </div>
-              <p className="font-semibold text-slate-900 text-lg">Check your email</p>
+              <p className="font-semibold text-slate-900 text-lg">Verify your withdrawal</p>
               <p className="text-sm text-slate-500 mt-1">
-                We sent a <strong>6-digit verification code</strong> to<br />
-                <span className="font-medium text-slate-700">{profile?.email}</span>
+                Use the code below to confirm.
+                {emailDelivered && <> A copy was also sent to <span className="font-medium text-slate-700">{profile?.email}</span>.</>}
               </p>
             </div>
+
+            {/* Verification code — always shown prominently */}
+            {inlineCode && (
+              <div className="bg-green-50 border-2 border-green-300 rounded-2xl p-5 text-center">
+                <p className="text-xs font-semibold text-green-700 uppercase tracking-wider mb-2">Your Verification Code</p>
+                <p className="text-4xl font-black text-green-800 tracking-[0.5em] font-mono select-all">{inlineCode}</p>
+                <p className="text-xs text-green-600 mt-2">Enter this code in the field below — expires in 30 minutes</p>
+              </div>
+            )}
 
             {/* Code input */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2 text-center">
-                Enter the 6-digit code from your email
+                Enter the 6-digit code
               </label>
               <input
                 type="text"
@@ -857,7 +887,8 @@ export default function WalletPage() {
 
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
               <p className="text-xs text-amber-700">
-                <strong>Code expires in 30 minutes.</strong> You can also click the confirmation link in the email instead.
+                <strong>Code expires in 30 minutes.</strong> Do not share this code with anyone.
+                Oakmont Ridge will never ask for your code.
               </p>
             </div>
 

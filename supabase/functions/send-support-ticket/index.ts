@@ -29,10 +29,10 @@ Deno.serve(async (req) => {
   try {
     const { name, email, subject, topic, message, source } = await req.json()
 
-    if (!name?.trim())  return jsonResponse({ error: 'Name is required' }, 400)
-    if (!email?.includes('@')) return jsonResponse({ error: 'Valid email is required' }, 400)
+    if (!name?.trim())  return jsonResponse({ success: false, error: 'Name is required' })
+    if (!email?.includes('@')) return jsonResponse({ success: false, error: 'Valid email is required' })
     if (!message?.trim() || message.trim().length < 5) {
-      return jsonResponse({ error: 'Message is required' }, 400)
+      return jsonResponse({ success: false, error: 'Message is required' })
     }
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE)
@@ -82,26 +82,34 @@ Deno.serve(async (req) => {
       created_at:    now.toISOString(),
     })
 
-    if (insertErr) throw new Error('Failed to save ticket: ' + insertErr.message)
+    if (insertErr) {
+      console.error('Ticket insert error:', insertErr)
+      return jsonResponse({ success: false, error: 'Failed to save ticket: ' + insertErr.message })
+    }
 
     const subjectLine = (subject || topic || '').trim() || 'General Inquiry'
 
-    // Send internal notification to support inbox
-    await sendEmail(
-      SUPPORT_INBOX,
-      `[${ticketNumber}] New Support Ticket — ${subjectLine}`,
-      supportTicketAdminEmail({
-        ticketNumber,
-        name:      name.trim(),
-        email:     email.trim(),
-        subject:   subjectLine,
-        message:   message.trim(),
-        source:    source ?? 'support',
-        createdAt: createdAtLabel,
-      }),
-    )
+    // Both emails are best-effort — the ticket is already saved in the DB.
+    // If Resend isn't configured yet (domain not verified), we still return
+    // the ticket number so the user knows their message was received.
+    try {
+      await sendEmail(
+        SUPPORT_INBOX,
+        `[${ticketNumber}] New Support Ticket — ${subjectLine}`,
+        supportTicketAdminEmail({
+          ticketNumber,
+          name:      name.trim(),
+          email:     email.trim(),
+          subject:   subjectLine,
+          message:   message.trim(),
+          source:    source ?? 'support',
+          createdAt: createdAtLabel,
+        }),
+      )
+    } catch (mailErr) {
+      console.warn('Admin notification email failed (non-fatal):', mailErr)
+    }
 
-    // Send confirmation to the user (best-effort — don't fail the request if this errors)
     try {
       await sendEmail(
         email.trim(),
@@ -121,6 +129,6 @@ Deno.serve(async (req) => {
     return jsonResponse({ success: true, ticket_number: ticketNumber })
   } catch (err: any) {
     console.error('send-support-ticket error:', err)
-    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
+    return jsonResponse({ success: false, error: err.message ?? 'Internal error' })
   }
 })

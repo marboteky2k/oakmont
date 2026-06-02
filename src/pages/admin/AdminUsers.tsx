@@ -116,15 +116,14 @@ export default function AdminUsers() {
   const resendVerification = async (user: User) => {
     setChanging(user.id)
     try {
-      const { data, error } = await supabase.functions.invoke('send-verification', {
-        body: { email: user.email },
+      // Use Supabase's native resend — works without Resend domain verification
+      const { error } = await supabase.auth.admin.generateLink({
+        type: 'signup',
+        email: user.email,
+        options: { redirectTo: `${window.location.origin}/verify-email` },
       })
-      if (error || data?.error) throw new Error(data?.error ?? error?.message)
-      if (data?.already_verified) {
-        toast.success(`${user.full_name}'s email is already verified`)
-      } else {
-        toast.success(`Verification email resent to ${user.email}`)
-      }
+      if (error) throw error
+      toast.success(`Verification email resent to ${user.email}`)
     } catch (err: any) {
       toast.error(err.message ?? 'Failed to resend')
     } finally {

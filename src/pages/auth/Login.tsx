@@ -87,18 +87,16 @@ export default function Login() {
     if (!unverifiedEmail) return
     setResendingVerification(true)
     try {
-      const { data, error } = await supabase.functions.invoke('send-verification', {
-        body: { email: unverifiedEmail },
+      // Use Supabase's native resend — delivered via Supabase's own email service
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: unverifiedEmail,
+        options: { emailRedirectTo: `${window.location.origin}/verify-email` },
       })
-      if (error || data?.error) throw new Error(data?.error ?? error?.message)
-      if (data?.already_verified) {
-        toast.success('Your email is already verified. Please try signing in.')
-        setUnverifiedEmail('')
-        return
-      }
-      toast.success('Verification email resent! Check your inbox.')
+      if (error) throw error
+      toast.success('Verification email sent! Check your inbox.')
     } catch (err: any) {
-      toast.error(err.message ?? 'Failed to resend verification email')
+      toast.error(err.message ?? 'Unable to resend — please try again.')
     } finally {
       setResendingVerification(false)
     }

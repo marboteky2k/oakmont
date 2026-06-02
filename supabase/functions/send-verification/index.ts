@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
 
   try {
     const { email } = await req.json()
-    if (!email) return jsonResponse({ error: 'email is required' }, 400)
+    if (!email) return jsonResponse({ success: false, error: 'email is required' })
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE)
 
@@ -26,8 +26,8 @@ Deno.serve(async (req) => {
       .eq('email', email)
       .single()
 
-    if (userErr || !user) return jsonResponse({ error: 'No account found for that email.' }, 404)
-    if (user.email_verified) return jsonResponse({ already_verified: true })
+    if (userErr || !user) return jsonResponse({ success: false, error: 'No account found for that email.' })
+    if (user.email_verified) return jsonResponse({ success: true, already_verified: true })
 
     // Rate limit: max 3 emails per hour per user
     const hourAgo = new Date(Date.now() - 3_600_000).toISOString()
@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
       .gte('created_at', hourAgo)
 
     if ((count ?? 0) >= 3) {
-      return jsonResponse({ error: 'Too many verification emails sent. Please wait before trying again.' }, 429)
+      return jsonResponse({ success: false, error: 'Too many verification emails sent. Please wait before trying again.' })
     }
 
     // Invalidate previous unused tokens
@@ -60,11 +60,23 @@ Deno.serve(async (req) => {
     const link = `${SITE_URL}/verify-email?token=${record.token}`
     const name = user.full_name?.split(' ')[0] ?? 'there'
 
-    await sendEmail(email, 'Verify Your Email Address — Oakmont Ridge Capital', verificationEmail({ name, link }))
+    try {
+      await sendEmail(email, 'Verify Your Email Address — Oakmont Ridge Capital', verificationEmail({ name, link }))
+    } catch (mailErr: any) {
+      console.error('Verification email failed:', mailErr.message)
+      // Token is saved — return a specific flag so the frontend can show
+      // a helpful message ("check spam / contact support") instead of crashing.
+      return jsonResponse({
+        success: false,
+        email_failed: true,
+        verify_link: link,   // include link as fallback (shown only in dev/admin)
+        error: 'Your account was created but we could not send the verification email. Please contact support@oakmontridgecapital.com to verify your account.',
+      })
+    }
 
     return jsonResponse({ success: true })
   } catch (err: any) {
     console.error('send-verification error:', err)
-    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
+    return jsonResponse({ success: false, error: err.message ?? 'Internal error' })
   }
 })

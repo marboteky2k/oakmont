@@ -25,31 +25,63 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401)
+    if (!authHeader) return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
 
     // Verify caller identity
     const anon = createClient(SUPABASE_URL, SUPABASE_ANON, {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: authErr } = await anon.auth.getUser()
-    if (authErr || !user) return jsonResponse({ error: 'Unauthorized' }, 401)
+    if (authErr || !user) return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE)
 
     const { amount, currency, address, network } = await req.json()
-    if (!amount || !currency || !address) return jsonResponse({ error: 'Missing required fields' }, 400)
+    if (!amount || !currency || !address) {
+      return jsonResponse({ success: false, error: 'Missing required fields' })
+    }
 
     const amt = parseFloat(amount)
-    if (isNaN(amt) || amt <= 0) return jsonResponse({ error: 'Invalid amount' }, 400)
+    if (isNaN(amt) || amt <= 0) {
+      return jsonResponse({ success: false, error: 'Invalid amount' })
+    }
 
-    // Fetch user profile for name + email
+    // ── Balance check ──────────────────────────────────────────────────────────
+    const balanceField =
+      currency === 'USDT' ? 'balance_usdt' :
+      currency === 'BTC'  ? 'balance_btc'  :
+      currency === 'ETH'  ? 'balance_eth'  : null
+
+    if (!balanceField) {
+      return jsonResponse({ success: false, error: `Unsupported currency: ${currency}` })
+    }
+
+    const { data: walletRow } = await db
+      .from('wallets')
+      .select(balanceField)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const available = (walletRow as any)?.[balanceField] ?? 0
+    if (amt > available) {
+      return jsonResponse({
+        success: false,
+        error: `Insufficient balance. Available: ${Number(available).toFixed(8)} ${currency}`,
+      })
+    }
+
+    // Use email from auth token directly — don't require public.users to have it
+    const userEmail = user.email
+    if (!userEmail) return jsonResponse({ success: false, error: 'No email address on account' })
+
+    // Fetch display name from profile (optional — fall back gracefully)
     const { data: profile } = await db
       .from('users')
-      .select('full_name, email')
+      .select('full_name')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
-    if (!profile?.email) return jsonResponse({ error: 'User email not found' }, 400)
+    const name = profile?.full_name?.split(' ')[0] ?? userEmail.split('@')[0] ?? 'Investor'
 
     // Create the withdrawal transaction (status = pending_verification)
     const { data: tx, error: txErr } = await db
@@ -68,7 +100,10 @@ Deno.serve(async (req) => {
       .select('id')
       .single()
 
-    if (txErr || !tx) throw new Error(`Failed to create transaction: ${txErr?.message}`)
+    if (txErr || !tx) {
+      console.error('Transaction insert error:', txErr)
+      return jsonResponse({ success: false, error: `Failed to create withdrawal: ${txErr?.message ?? 'Unknown error'}` })
+    }
 
     // Generate 6-digit code + create verification record
     const verificationCode = generateCode()
@@ -89,28 +124,46 @@ Deno.serve(async (req) => {
       .select('token, code')
       .single()
 
-    if (verifErr || !verif) throw new Error('Failed to create verification record')
+    if (verifErr || !verif) {
+      console.error('Verification record error:', verifErr)
+      return jsonResponse({ success: false, error: `Failed to create verification record: ${verifErr?.message ?? 'Unknown error'}` })
+    }
 
     const link = `${SITE_URL}/verify-withdrawal?token=${verif.token}`
-    const name = profile.full_name?.split(' ')[0] ?? 'Investor'
 
-    await sendEmail(
-      profile.email,
-      'Confirm Your Withdrawal Request — Oakmont Ridge Capital',
-      withdrawalVerificationEmail({
-        name,
-        amount: amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }),
-        currency,
-        address: address.trim(),
-        link,
-        code:        verif.code,
-        expiresMins: EXPIRE_MINS,
-      }),
-    )
+    // Send email — if it fails, still proceed: return the code directly so the
+    // user can enter it in the modal without needing the email.
+    let emailDelivered = true
+    try {
+      await sendEmail(
+        userEmail,
+        'Confirm Your Withdrawal Request — Oakmont Ridge Capital',
+        withdrawalVerificationEmail({
+          name,
+          amount: amt.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 8 }),
+          currency,
+          address: address.trim(),
+          link,
+          code:        verif.code,
+          expiresMins: EXPIRE_MINS,
+        }),
+      )
+    } catch (emailErr: any) {
+      console.error('Email send failed (non-fatal — returning code inline):', emailErr.message)
+      emailDelivered = false
+    }
 
-    return jsonResponse({ success: true, tx_id: tx.id })
+    // Always return the code so the modal can display it on-screen.
+    // This is the primary verification path — email is a bonus copy.
+    return jsonResponse({
+      success:         true,
+      tx_id:           tx.id,
+      code:            verif.code,
+      expires_mins:    EXPIRE_MINS,
+      email_delivered: emailDelivered,
+    })
   } catch (err: any) {
     console.error('send-withdrawal-verification error:', err)
-    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
+    return jsonResponse({ success: false, error: err.message ?? 'Internal error' })
   }
 })

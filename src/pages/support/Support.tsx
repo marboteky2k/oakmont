@@ -7,7 +7,7 @@ import {
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { supabase } from '@/lib/supabase'
+import { invokeFunction } from '@/lib/functions'
 import toast from 'react-hot-toast'
 
 const quickLinks = [
@@ -42,13 +42,10 @@ export default function Support() {
     }
     setSending(true)
     try {
-      const { data, error } = await supabase.functions.invoke('send-support-ticket', {
-        body: { name: name.trim(), email: email.trim(), subject, message: message.trim(), source: 'support' },
+      const data = await invokeFunction<{ ticket_number?: string }>('send-support-ticket', {
+        name: name.trim(), email: email.trim(), subject, message: message.trim(), source: 'support',
       })
-      if (error || !data?.success) {
-        throw new Error(data?.error ?? error?.message ?? 'Submission failed')
-      }
-      setTicketNumber(data.ticket_number ?? '')
+      setTicketNumber(data?.ticket_number ?? '')
       setSent(true)
       toast.success('Support ticket submitted!')
     } catch (err: any) {

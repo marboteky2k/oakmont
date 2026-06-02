@@ -1,7 +1,7 @@
 // ── Resend API helper ────────────────────────────────────────────────────────
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') ?? ''
-const RESEND_FROM    = Deno.env.get('RESEND_FROM') ?? 'Oakmont Ridge Capital <noreply@oakmontridgecapital.com>'
+const RESEND_FROM    = Deno.env.get('RESEND_FROM') ?? 'Oakmont Ridge Capital <noreply@contact.oakmontridgecapital.com>'
 
 export async function sendEmail(to: string, subject: string, html: string): Promise<void> {
   if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY is not configured')

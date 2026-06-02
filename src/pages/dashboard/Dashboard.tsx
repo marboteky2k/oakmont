@@ -139,14 +139,11 @@ export default function Dashboard() {
     if (!profile?.email || resendingVerify) return
     setResendingVerify(true)
     try {
-      const { data, error } = await supabase.functions.invoke('send-verification', {
+      const { data } = await supabase.functions.invoke('send-verification', {
         body: { email: profile.email },
       })
-      if (error || data?.error) throw new Error(data?.error ?? error?.message)
-      if (data?.already_verified) {
-        setResentVerify(false)
-        return
-      }
+      if (data?.already_verified) { setResentVerify(false); return }
+      // email_failed = true means email couldn't send but token saved — still show "sent"
       setResentVerify(true)
     } catch {
       // silently fail — user can go to /verify-email

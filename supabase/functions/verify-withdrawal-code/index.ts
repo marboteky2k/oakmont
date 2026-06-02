@@ -15,18 +15,19 @@ Deno.serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('Authorization')
-    if (!authHeader) return jsonResponse({ error: 'Unauthorized' }, 401)
+    if (!authHeader) return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
 
     // Verify caller identity
     const anon = createClient(SUPABASE_URL, SUPABASE_ANON, {
       global: { headers: { Authorization: authHeader } },
     })
     const { data: { user }, error: authErr } = await anon.auth.getUser()
-    if (authErr || !user) return jsonResponse({ error: 'Unauthorized' }, 401)
+    if (authErr || !user) return jsonResponse({ success: false, error: 'Unauthorized' }, 401)
 
-    const { code } = await req.json()
-    if (!code || typeof code !== 'string') {
-      return jsonResponse({ error: 'Verification code is required' }, 400)
+    const body = await req.json()
+    const code = body?.code
+    if (!code || typeof code !== 'string' || !code.trim()) {
+      return jsonResponse({ success: false, error: 'Verification code is required' })
     }
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE)
@@ -41,10 +42,15 @@ Deno.serve(async (req) => {
       .gte('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
-    if (verifErr || !verif) {
-      return jsonResponse({ error: 'Invalid or expired verification code.' }, 400)
+    if (verifErr) {
+      console.error('Verification lookup error:', verifErr)
+      return jsonResponse({ success: false, error: 'Failed to look up verification record' })
+    }
+
+    if (!verif) {
+      return jsonResponse({ success: false, error: 'Invalid or expired verification code. Please request a new withdrawal.' })
     }
 
     // Confirm the withdrawal — promote to 'pending' for admin processing
@@ -54,7 +60,10 @@ Deno.serve(async (req) => {
       .eq('id', verif.withdrawal_id)
       .eq('status', 'pending_verification') // guard against double-confirm
 
-    if (txErr) throw new Error('Failed to confirm transaction: ' + txErr.message)
+    if (txErr) {
+      console.error('Transaction update error:', txErr)
+      return jsonResponse({ success: false, error: 'Failed to confirm transaction — please contact support' })
+    }
 
     // Mark the verification record as used
     await db
@@ -73,6 +82,6 @@ Deno.serve(async (req) => {
     })
   } catch (err: any) {
     console.error('verify-withdrawal-code error:', err)
-    return jsonResponse({ error: err.message ?? 'Internal error' }, 500)
+    return jsonResponse({ success: false, error: err.message ?? 'Internal error' })
   }
 })

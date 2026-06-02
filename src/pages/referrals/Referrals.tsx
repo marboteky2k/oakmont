@@ -32,13 +32,21 @@ export default function Referrals() {
   const earnings = (profile as any)?.referral_earnings ?? 0
 
   useEffect(() => {
-    if (!profile?.referral_code) { setLoading(false); return }
-    supabase.from('users' as any)
-      .select('id, full_name, created_at, kyc_status')
-      .eq('referred_by', profile.id)   // referred_by stores the referrer's UUID
+    if (!profile?.id) { setLoading(false); return }
+    // Join referrals table → users to get referred user details
+    supabase
+      .from('referrals' as any)
+      .select('referred_id, created_at, users!referrals_referred_id_fkey(id, full_name, kyc_status, created_at)')
+      .eq('referrer_id', profile.id)
       .order('created_at', { ascending: false })
       .then(({ data }: { data: any }) => {
-        setReferrals(data ?? [])
+        const mapped = (data ?? []).map((r: any) => ({
+          id:         r.referred_id,
+          full_name:  r.users?.full_name ?? 'Unknown',
+          created_at: r.created_at,
+          kyc_status: r.users?.kyc_status ?? 'not_started',
+        }))
+        setReferrals(mapped)
         setLoading(false)
       })
   }, [profile])

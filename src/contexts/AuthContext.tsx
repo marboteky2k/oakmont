@@ -99,10 +99,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const signUp = async (email: string, password: string, fullName: string, extra?: SignUpExtra) => {
+    // Supabase Auth sends the confirmation email via its own mail.supabase.io service.
+    // After the user clicks, they are redirected to /verify-email where we handle
+    // the session hash and mark email_verified = true in public.users.
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        emailRedirectTo: `${window.location.origin}/verify-email`,
         data: {
           full_name: fullName,
           phone: extra?.phone,
@@ -112,7 +116,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           investment_goals: extra?.investmentGoals,
           asset_interests: extra?.assetInterests,
         },
-        emailRedirectTo: `${window.location.origin}/verify-email`,
       },
     })
 
@@ -123,35 +126,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // (e.g. migration not yet applied) we create the row ourselves.
     // data.user is available immediately after signUp even before email verification.
     if (data.user) {
-      try {
-        const { data: existing } = await supabase
-          .from('users')
-          .select('id')
-          .eq('id', data.user.id)
-          .single()
-
-        if (!existing) {
-          // Trigger missed — create profile manually
-          await supabase.from('users').upsert({
-            id:                    data.user.id,
-            email:                 email.toLowerCase().trim(),
-            full_name:             fullName,
-            email_verified:        false,
-            phone:                 extra?.phone ?? null,
-            country:               extra?.country ?? null,
-            investment_experience: extra?.investmentExperience ?? null,
-            investment_goals:      extra?.investmentGoals ?? null,
-            asset_interests:       extra?.assetInterests ?? null,
-          }, { onConflict: 'id' })
-
-          // Ensure wallet exists too
-          await supabase
-            .from('wallets')
-            .upsert({ user_id: data.user.id }, { onConflict: 'user_id' })
-        }
-      } catch {
-        // Silently ignore — the trigger or a later login will handle it
-      }
+      // Call the ensure-profile Edge Function as a reliable fallback.
+      // It uses the service-role key server-side so RLS cannot block it,
+      // and it is idempotent — safe even if the DB trigger already ran.
+      supabase.functions.invoke('ensure-profile', {
+        body: {
+          full_name:             fullName,
+          phone:                 extra?.phone,
+          country:               extra?.country,
+          investment_experience: extra?.investmentExperience,
+          investment_goals:      extra?.investmentGoals,
+          asset_interests:       extra?.assetInterests,
+          referral_code:         extra?.referralCode,
+        },
+      }).catch(err => console.warn('ensure-profile fallback failed:', err))
     }
   }
 
