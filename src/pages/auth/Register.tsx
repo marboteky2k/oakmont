@@ -20,10 +20,10 @@ import toast from 'react-hot-toast'
 const step1Schema = z.object({
   fullName: z.string().min(2, 'Enter your full name'),
   email: z.string().email('Enter a valid email address'),
+  country: z.string().min(1, 'Please select your country'),
   phone: z.string().min(7, 'Enter a valid phone number'),
 })
 const step2Schema = z.object({
-  country: z.string().min(1, 'Please select your country'),
   experience: z.string().min(1, 'Please select your experience level'),
   goals: z.string().min(1, 'Please select your primary goal'),
   assets: z.string().min(1, 'Please select your primary interest'),
@@ -401,10 +401,21 @@ export default function Register() {
                     autoComplete="email"
                     {...form1.register('email')}
                   />
+                  <SelectField
+                    label="Country *"
+                    icon={Globe}
+                    error={form1.formState.errors.country?.message}
+                    defaultValue=""
+                    {...form1.register('country')}
+                  >
+                    <option value="" disabled>Select your country</option>
+                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  </SelectField>
+
                   <Input
                     label="Phone Number *"
                     type="tel"
-                    placeholder="+1 (555) 123-0000"
+                    placeholder="555 123 0000"
                     leftIcon={<Phone className="w-4 h-4" />}
                     error={form1.formState.errors.phone?.message}
                     autoComplete="tel"
@@ -433,17 +444,6 @@ export default function Register() {
                 <p className="text-slate-500 text-sm mt-1 mb-5">Help us personalise your experience.</p>
 
                 <form onSubmit={form2.handleSubmit(onStep2)} className="space-y-4">
-                  <SelectField
-                    label="Country *"
-                    icon={Globe}
-                    error={form2.formState.errors.country?.message}
-                    defaultValue=""
-                    {...form2.register('country')}
-                  >
-                    <option value="" disabled>Select your country</option>
-                    {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </SelectField>
-
                   {/* Experience — radio cards */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">

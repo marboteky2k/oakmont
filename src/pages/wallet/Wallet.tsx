@@ -318,10 +318,14 @@ export default function WalletPage() {
     }
 
     // Check wallet balance (frontend guard — backend also checks)
-    const available =
+    // For USDT, include both balance and withdrawable profits
+    const balance =
       currency === 'USDT' ? (wallet?.balance_usdt ?? 0) :
       currency === 'BTC'  ? (wallet?.balance_btc  ?? 0) :
                             (wallet?.balance_eth  ?? 0)
+    const profits = currency === 'USDT' ? (wallet?.total_profit ?? 0) : 0
+    const available = balance + profits
+
     if (amt > available) {
       toast.error(`Insufficient balance. Available: ${available.toFixed(8)} ${currency}`)
       return

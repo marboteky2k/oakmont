@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   MessageCircle, Send, RefreshCw, Search, CheckCircle,
-  User, Headphones, Bot,
+  User, Headphones, Bot, Trash2,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -157,6 +157,14 @@ export default function AdminChat() {
     setSending(false)
   }
 
+  const deleteMessage = async (messageId: string) => {
+    if (!window.confirm('Delete this message?')) return
+    const { error } = await supabase.from('chat_messages').delete().eq('id', messageId)
+    if (error) { toast.error('Failed to delete message'); return }
+    setMessages(prev => prev.filter(m => m.id !== messageId))
+    toast.success('Message deleted')
+  }
+
   const filtered = conversations.filter(c =>
     !search ||
     c.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -278,6 +286,18 @@ export default function AdminChat() {
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     className={cn('flex', msg.is_admin ? 'justify-end items-end gap-2' : 'items-start gap-2')}
+                    onMouseEnter={(e) => {
+                      if (msg.is_admin) {
+                        const btn = e.currentTarget.querySelector('[data-delete-btn]')
+                        if (btn) btn.classList.remove('opacity-0', 'pointer-events-none')
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (msg.is_admin) {
+                        const btn = e.currentTarget.querySelector('[data-delete-btn]')
+                        if (btn) btn.classList.add('opacity-0', 'pointer-events-none')
+                      }
+                    }}
                   >
                     {!msg.is_admin && (
                       <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -307,14 +327,24 @@ export default function AdminChat() {
                       </p>
                     </div>
                     {msg.is_admin && (
-                      <div className={cn(
-                        'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
-                        msg.is_ai ? 'bg-purple-600' : 'bg-[#1E40AF]'
-                      )}>
-                        {msg.is_ai
-                          ? <Bot className="w-3.5 h-3.5 text-white" />
-                          : <Headphones className="w-3.5 h-3.5 text-white" />
-                        }
+                      <div className="flex items-center gap-1">
+                        <button
+                          data-delete-btn
+                          onClick={() => deleteMessage(msg.id)}
+                          className="opacity-0 pointer-events-none transition-opacity w-7 h-7 rounded-full flex items-center justify-center hover:bg-red-500/20 text-red-500"
+                          title="Delete message"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                        <div className={cn(
+                          'w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
+                          msg.is_ai ? 'bg-purple-600' : 'bg-[#1E40AF]'
+                        )}>
+                          {msg.is_ai
+                            ? <Bot className="w-3.5 h-3.5 text-white" />
+                            : <Headphones className="w-3.5 h-3.5 text-white" />
+                          }
+                        </div>
                       </div>
                     )}
                   </motion.div>

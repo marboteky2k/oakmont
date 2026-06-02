@@ -58,11 +58,15 @@ Deno.serve(async (req) => {
 
     const { data: walletRow } = await db
       .from('wallets')
-      .select(balanceField)
+      .select(`${balanceField}, total_profit`)
       .eq('user_id', user.id)
       .maybeSingle()
 
-    const available = (walletRow as any)?.[balanceField] ?? 0
+    const balance = (walletRow as any)?.[balanceField] ?? 0
+    // For USDT, include total_profit as withdrawable. For BTC/ETH, profits stay in USDT.
+    const profits = currency === 'USDT' ? ((walletRow as any)?.total_profit ?? 0) : 0
+    const available = balance + profits
+
     if (amt > available) {
       return jsonResponse({
         success: false,
@@ -83,6 +87,28 @@ Deno.serve(async (req) => {
 
     const name = profile?.full_name?.split(' ')[0] ?? userEmail.split('@')[0] ?? 'Investor'
 
+    // ── IMMEDIATELY DEDUCT FROM WALLET ────────────────────────────────────────
+    // Deduct the withdrawal amount right away so user can't double-spend.
+    // First from balance, then from profits if needed.
+    const balanceDeduction = Math.min(amt, balance)
+    const profitDeduction = Math.max(0, amt - balance)
+
+    const updateData: any = {}
+    updateData[balanceField] = balance - balanceDeduction
+    if (currency === 'USDT' && profitDeduction > 0) {
+      updateData.total_profit = profits - profitDeduction
+    }
+
+    const { error: updateErr } = await db
+      .from('wallets')
+      .update(updateData)
+      .eq('user_id', user.id)
+
+    if (updateErr) {
+      console.error('Wallet update error:', updateErr)
+      return jsonResponse({ success: false, error: 'Failed to process withdrawal' })
+    }
+
     // Create the withdrawal transaction (status = pending_verification)
     const { data: tx, error: txErr } = await db
       .from('transactions')
@@ -102,6 +128,13 @@ Deno.serve(async (req) => {
 
     if (txErr || !tx) {
       console.error('Transaction insert error:', txErr)
+      // Rollback: restore the balance and profits if transaction fails
+      const rollbackData: any = {}
+      rollbackData[balanceField] = balance
+      if (currency === 'USDT') {
+        rollbackData.total_profit = profits
+      }
+      await db.from('wallets').update(rollbackData).eq('user_id', user.id)
       return jsonResponse({ success: false, error: `Failed to create withdrawal: ${txErr?.message ?? 'Unknown error'}` })
     }
 

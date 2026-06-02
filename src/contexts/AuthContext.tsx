@@ -21,7 +21,6 @@ interface AuthContextType {
   mfaVerified: boolean
   signIn: (email: string, password: string) => Promise<{ needsMfa: boolean }>
   signUp: (email: string, password: string, fullName: string, extra?: SignUpExtra) => Promise<void>
-  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
   setMfaVerified: (v: boolean) => void
@@ -143,17 +142,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-        queryParams: { access_type: 'offline', prompt: 'consent' },
-      },
-    })
-    if (error) throw error
-  }
-
   const signOut = async () => {
     await supabase.auth.signOut()
     setProfile(null)
@@ -167,7 +155,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       session, supabaseUser, profile, loading, mfaVerified,
-      signIn, signUp, signInWithGoogle, signOut, refreshProfile, setMfaVerified,
+      signIn, signUp, signOut, refreshProfile, setMfaVerified,
     }}>
       {children}
     </AuthContext.Provider>
