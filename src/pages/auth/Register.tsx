@@ -194,7 +194,7 @@ export default function Register() {
     try {
       await signUp(step1Data.email, data.password, step1Data.fullName, {
         phone: step1Data.phone,
-        country: step2Data.country,
+        country: step1Data.country,
         referralCode: data.referralCode,
         investmentExperience: step2Data.experience,
         investmentGoals: step2Data.goals,
